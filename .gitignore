@@ -1,0 +1,34 @@
+# Generated audio clips
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.opus
+
+# Downloaded datasets
+hey_eve_training/audioset/
+hey_eve_training/audioset_16k/
+hey_eve_training/fma/
+hey_eve_training/MIT_environmental_impulse_responses/
+hey_eve_training/mit_rirs/
+
+# Downloaded pre-computed feature files
+hey_eve_training/openwakeword_features_ACAV100M_2000_hrs_16bit.npy
+hey_eve_training/validation_set_features.npy
+
+# Downloaded voice model
+hey_eve_training/models/
+
+# Training outputs
+hey_eve_training/my_custom_model/
+hey_eve_training/runs/
+hey_eve_training/clips/
+
+# Temp text files written before each clip generation batch
+hey_eve_training/_texts_*.txt
+
+# Python virtual environment
+hey_eve_training/piper_venv/
+
+# Downloaded binary dependency
+hey_eve_training/piper-phonemize_win/
