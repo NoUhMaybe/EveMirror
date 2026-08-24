@@ -1,0 +1,1732 @@
+# Eve Smart Mirror AI Stack
+
+## Overview
+
+**Eve** is a local, voice-first smart mirror assistant intended to replace a traditional smart speaker while adding a visual dashboard and smart-home control.
+
+---
+
+# Repository Contents
+
+```text
+EveMirror/
+│
+├── wake_word_training/       — Hey Eve ONNX model training pipeline
+│   ├── train.py
+│   ├── generate_clips_piper.py
+│   ├── test_wakeword.py
+│   ├── my_model.yaml
+│   ├── openwakeword/         — vendored openWakeWord library
+│   ├── piper-sample-generator/
+│   └── my_custom_model/
+│       └── hey_eve.onnx
+│
+├── mirror_client/            — thin client: wake detection, VAD, audio, WebSocket
+│   ├── listen.py             — Phase 2: wake → chime → VAD record → command.wav
+│   ├── runtime.py            — 24/7 supervisor for listener + voice loop
+│   └── requirements.txt
+│
+├── eve_agent/                — AI server: agent, Ollama client, MCP client, TTS
+│   ├── transcribe.py         — Phase 3: command.wav → transcribed text (faster-whisper)
+│   └── requirements.txt
+│
+├── dashboard/                — React + TypeScript kiosk UI
+│
+└── mcp_servers/              — MCP tool servers (test, Home Assistant, etc.)
+```
+
+Core voice pipeline, agent, weather tool routing/cache, dashboard rendering, and debug utilities are implemented and actively evolving.
+
+---
+
+# Startup Commands (Current Dev Workflow)
+
+Run commands from the repository root unless noted.
+
+## 1) Activate the Python environment
+
+Windows PowerShell:
+
+```powershell
+(Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& .\.venv\Scripts\Activate.ps1)
+```
+
+## 2) Start Ollama
+
+```powershell
+ollama serve
+```
+
+## 3) Start the dashboard (Vite)
+
+```powershell
+cd .\dashboard
+npm run dev
+```
+
+Optional dashboard build check:
+
+```powershell
+cd .\dashboard
+npm run build
+```
+
+## 4) Start the 24/7 mirror runtime supervisor
+
+This launches/monitors listener, event server, and voice loop.
+
+```powershell
+python .\mirror_client\runtime.py
+```
+
+Useful runtime variants:
+
+```powershell
+python .\mirror_client\runtime.py --device 1
+python .\mirror_client\runtime.py --tts-speaker 64
+python .\mirror_client\runtime.py --no-tts
+```
+
+## 5) Run the text agent directly (single turn or interactive)
+
+Single-turn text:
+
+```powershell
+python .\eve_agent\agent.py --text "whats the weather like"
+```
+
+Single-turn from audio:
+
+```powershell
+python .\eve_agent\agent.py --audio .\mirror_client\recordings\command_YYYYMMDD_HHMMSS.wav
+```
+
+Interactive mode:
+
+```powershell
+python .\eve_agent\agent.py
+```
+
+---
+
+# Dashboard Debug Menu Tools
+
+The dashboard has two debug panels that can be enabled independently.
+
+## Layout Debug panel
+
+Enable either way:
+
+```powershell
+# Option A: env var before starting Vite
+$env:VITE_SHOW_LAYOUT_DEBUG_UI="1"
+npm run dev
+```
+
+or query string:
+
+```text
+http://localhost:5173/?layoutDebug=1
+```
+
+Tools currently available:
+
+- `Default Placement` button:
+    - returns to the default animation/tools placement
+    - dismisses active tiles through the transition choreography
+- `Tile Preset` dropdown:
+    - `No Tile`
+    - `Animation Only`
+    - `Large Default Tile`
+    - `Large Weather Tile`
+    - `3 Blank Tiles (Side by Side)`
+    - `4 Blank Tiles (2 x 2)`
+    - `2 Blank Tiles`
+
+## Animation TTS Test panel
+
+Enable either way:
+
+```powershell
+# Option A: env var before starting Vite
+$env:VITE_SHOW_TTS_TEST_UI="1"
+npm run dev
+```
+
+or query string:
+
+```text
+http://localhost:5173/?ttsTest=1
+```
+
+Tools currently available:
+
+- `Speak Test`:
+    - emits subtitle prep/progress/done events for a typed phrase
+    - exercises speaking-state animation timing
+- `Stop`:
+    - stops active test speech timeline
+
+## Weather debug behavior currently in place
+
+- Weather tool context events are emitted to dashboard (`tool_context`) during agent runs.
+- Last real weather payload is persisted in browser local storage for UI continuity.
+- Backend weather cache persists to JSON at `eve_agent/weather_cache.json` and is refreshed periodically.
+- Same-day hourly history is retained through day rollover for graph continuity.
+
+---
+
+# Interaction Flow
+
+Primary interaction flow:
+
+```text
+User says:
+"Hey Eve"
+
+        ↓
+
+Wake-word detection
+
+        ↓
+
+User speaks a command/question
+
+        ↓
+
+Speech-to-text
+
+        ↓
+
+Eve agent/orchestrator
+
+        ↓
+
+Local Qwen model through Ollama
+
+        ↓
+
+MCP / tool calls as needed
+
+        ↓
+
+Natural-language response
++
+dashboard action
++
+optional smart-home action
+
+        ↓
+
+Text-to-speech
+```
+
+Example:
+
+```text
+User:
+"Hey Eve"
+
+Eve:
+*activation chime*
+
+User:
+"Is it cold outside?"
+
+Eve:
+→ detects weather intent
+→ uses weather tool
+→ receives current temperature
+→ responds without extended reasoning
+→ shows weather on dashboard
+
+Eve:
+"Yeah, it's pretty cold. It's 30°F and feels like 24°F."
+```
+
+---
+
+# Hardware Architecture
+
+## Smart Mirror Thin Client
+
+The mirror-side computer is responsible for lightweight, latency-sensitive functions.
+
+Planned hardware:
+
+```text
+Lenovo ThinkPad T580 motherboard
+
+CPU:
+Intel Core i5-8250U
+4 cores / 8 threads
+
+RAM:
+16 GB DDR4
+
+Storage:
+256 GB SSD
+
+GPU:
+Intel UHD 620 integrated graphics
+
+Battery:
+Removed
+
+Power:
+USB-C PD adapter
+connected to PDU
+```
+
+The T580 BIOS supports:
+
+```text
+Power On with AC Attach
+```
+
+This should be enabled so the mirror automatically boots after power is restored.
+
+The laptop's original LCD is not required. The motherboard will drive the smart mirror's large LCD using HDMI or USB-C/DisplayPort.
+
+### Mirror Client Responsibilities
+
+```text
+Linux
+│
+├── Chromium kiosk
+│   └── Eve dashboard
+│
+├── openWakeWord
+│   └── "Hey Eve"
+│
+├── Silero VAD
+│
+├── microphone capture
+│
+├── speaker/audio playback
+│
+├── presence detection
+│
+├── display power control
+│
+├── WebSocket client
+│
+└── Eve edge service
+```
+
+The mirror client should remain mostly idle when Eve is not being used.
+
+It should NOT perform the main LLM inference.
+
+---
+
+# AI Server
+
+During development, the AI server is the Windows desktop.
+
+Current development hardware:
+
+```text
+CPU:
+AMD Ryzen 7 7800X3D
+
+RAM:
+32 GB
+
+GPU:
+NVIDIA RTX 4070 SUPER
+12 GB VRAM
+```
+
+Later, this role will move to a dedicated Linux workstation/server with a larger-VRAM GPU.
+
+The software architecture should make that migration require little more than changing the AI server address.
+
+### AI Server Responsibilities
+
+```text
+Ollama
+│
+└── Local abliterated Qwen model
+
+faster-whisper
+│
+└── Speech-to-text
+
+Eve Agent
+│
+├── Ollama client
+├── MCP client
+├── temporary session context
+├── tool filtering
+├── permissions
+└── reasoning-mode control
+
+Kokoro
+│
+└── Text-to-speech
+```
+
+---
+
+# Local LLM
+
+## Current Model Direction
+
+The preferred model family is:
+
+```text
+Qwen
+```
+
+with an **abliterated variant**.
+
+Current development target:
+
+```text
+Huihui-Qwen3.5-9B-abliterated
+```
+
+Recommended quantization for the RTX 4070 SUPER:
+
+```text
+Q5_K_M
+```
+
+This provides a good balance between:
+
+```text
+quality
+speed
+VRAM usage
+tool calling
+```
+
+Future dedicated AI hardware may use:
+
+```text
+Qwen3.5-35B-A3B-abliterated
+```
+
+on a 24 GB+ GPU.
+
+---
+
+# Ollama
+
+Ollama is the local model-serving layer.
+
+Architecture:
+
+```text
+Eve Agent
+    ↓
+HTTP API
+    ↓
+Ollama
+    ↓
+Qwen
+```
+
+Development address:
+
+```text
+http://localhost:11434
+```
+
+Eventually:
+
+```text
+http://eve-ai-server:11434
+```
+
+The rest of Eve should not care whether Ollama is running on Windows or Linux.
+
+---
+
+# Eve Agent / Orchestrator
+
+The **Eve Agent is not an AI model**.
+
+It is a normal application, initially planned in Python.
+
+Its job is to connect all components together.
+
+Conceptually:
+
+```text
+Python Agent
+│
+├── receives user text
+├── stores temporary conversation context
+├── sends requests to Ollama
+├── tells Ollama which tools are available
+├── receives tool calls from Qwen
+├── validates requested actions
+├── executes tools through MCP
+├── returns tool results to Qwen
+├── receives final response
+├── sends response to TTS
+└── sends UI commands to the mirror
+```
+
+The AI model itself should not directly possess:
+
+```text
+Home Assistant credentials
+API keys
+shell access
+filesystem access
+MCP authentication credentials
+database credentials
+```
+
+The Python agent owns those capabilities.
+
+---
+
+# MCP Architecture
+
+MCP is used as the tool interface between Eve and external systems.
+
+## MCP Server
+
+An MCP server exposes tools.
+
+Example development MCP:
+
+```text
+Test MCP Server
+
+Tools:
+├── get_current_weather()
+├── get_weather_forecast()
+├── get_current_time()
+├── set_light()
+└── show_dashboard()
+```
+
+Initially these can return fake data.
+
+Example:
+
+```text
+get_current_weather()
+```
+
+returns:
+
+```json
+{
+  "temperature_f": 30,
+  "feels_like_f": 24,
+  "condition": "cloudy"
+}
+```
+
+## MCP Client
+
+The MCP client lives inside the Eve Agent.
+
+It:
+
+```text
+connects to MCP servers
+discovers tools
+calls tools
+receives results
+```
+
+Architecture:
+
+```text
+Qwen
+  ↓
+requests tool call
+  ↓
+Eve Agent
+  ↓
+MCP Client
+  ↓
+MCP Server
+  ↓
+Service
+```
+
+Qwen itself does not directly connect to the MCP server.
+
+---
+
+# Home Assistant Integration
+
+Home Assistant will eventually replace or supplement the test MCP server.
+
+Target:
+
+```text
+Eve Agent
+    ↓
+MCP Client
+    ↓
+Home Assistant MCP Server
+    ↓
+Home Assistant
+    ↓
+lights
+thermostats
+switches
+sensors
+scenes
+media
+etc.
+```
+
+Home Assistant remains a separate service.
+
+Eve is only an intelligent interface into it.
+
+This allows Home Assistant automations and devices to continue functioning if Eve is offline.
+
+---
+
+# Reasoning Strategy
+
+Most smart-home requests should NOT use extended reasoning.
+
+Default:
+
+```text
+think = false
+```
+
+Examples:
+
+```text
+"Turn the bedroom light off."
+
+"Is it cold outside?"
+
+"What time is it?"
+
+"Show my calendar."
+
+"Play some music."
+
+"What's the weather tomorrow?"
+```
+
+These still receive natural-language responses.
+
+`think=false` does not disable normal language understanding.
+
+It only disables extended reasoning.
+
+Example:
+
+```text
+User:
+"Is it cold outside?"
+
+Qwen:
+think=false
+
+    ↓
+
+weather.current()
+
+    ↓
+
+Tool result:
+30°F
+Feels like 24°F
+
+    ↓
+
+Qwen:
+"Yeah, it's cold outside. It's 30°F and feels like 24°F."
+```
+
+Extended reasoning should be reserved for more complex requests.
+
+Example:
+
+```text
+"Look at tomorrow's weather and my calendar
+and tell me when I should leave if I need
+45 minutes to get ready."
+```
+
+That may use:
+
+```text
+think = true
+```
+
+---
+
+# Optional Semantic Router
+
+A second small model may eventually be added.
+
+Possible model:
+
+```text
+Qwen3 0.6B
+```
+
+Its only job would be request classification.
+
+It would have:
+
+```text
+NO MCP access
+NO Home Assistant access
+NO API keys
+NO execution permissions
+```
+
+Example input:
+
+```text
+"Is it cold outside?"
+```
+
+Example output:
+
+```json
+{
+  "domain": "weather",
+  "reasoning": false,
+  "tool_groups": [
+    "weather",
+    "dashboard"
+  ]
+}
+```
+
+The router is optional.
+
+The initial implementation should use only the main Qwen model with:
+
+```text
+think=false
+```
+
+by default.
+
+---
+
+# Conversation Context
+
+Eve should NOT have permanent conversational memory.
+
+Every interaction session is temporary.
+
+Example:
+
+```text
+"Hey Eve"
+
+        ↓
+
+NEW SESSION
+
+User:
+"What is the weather like today?"
+
+Eve:
+"It's 65°F and partly cloudy."
+
+User:
+"Will it rain later this week?"
+
+Eve understands the previous weather context.
+
+        ↓
+
+session timeout / standby
+
+        ↓
+
+conversation context deleted
+```
+
+The next wake session starts fresh.
+
+---
+
+# Context Types
+
+Eve should maintain four distinct context categories.
+
+## Permanent System Context
+
+Examples:
+
+```text
+Your name is Eve.
+
+You are a local smart-mirror assistant.
+
+You primarily interact through voice and a visual dashboard.
+
+Use available tools for current information.
+
+Keep normal spoken responses concise.
+```
+
+## Permanent Configuration
+
+Examples:
+
+```text
+timezone
+temperature units
+default location
+enabled services
+dashboard capabilities
+assistant name
+```
+
+## Dynamic Tool Context
+
+Obtained through MCP.
+
+Examples:
+
+```text
+Home Assistant tools
+weather tools
+calendar tools
+dashboard tools
+music tools
+search tools
+```
+
+## Temporary Conversation Context
+
+Examples:
+
+```text
+User:
+"What's the weather today?"
+
+Eve:
+"It's cloudy."
+
+User:
+"What about tomorrow?"
+```
+
+This is deleted when Eve returns to standby.
+
+---
+
+# Voice Pipeline
+
+The planned voice stack is:
+
+```text
+Microphone
+    ↓
+openWakeWord
+    ↓
+Silero VAD
+    ↓
+faster-whisper
+    ↓
+Eve Agent
+    ↓
+Qwen
+    ↓
+MCP / tools
+    ↓
+Qwen response
+    ↓
+Kokoro
+    ↓
+Speakers
+```
+
+---
+
+# Wake Word
+
+Wake phrase:
+
+```text
+Hey Eve
+```
+
+Technology:
+
+```text
+openWakeWord
+```
+
+A custom:
+
+```text
+hey_eve.onnx
+```
+
+model has already been trained and tested successfully using the scripts in `wake_word_training/`.
+
+Current Windows development environment (Eve runtime):
+
+```text
+Python 3.11.9
+
+C:\...\Eve             ← local dev path, not committed to repo
+│
+├── .venv
+├── models
+│   └── hey_eve.onnx
+└── openWakeWord
+```
+
+Wake-word detection should run continuously on the mirror thin client.
+
+---
+
+# Wake State
+
+Normal state:
+
+```text
+WAITING_FOR_WAKE
+```
+
+When:
+
+```text
+"Hey Eve"
+```
+
+is detected:
+
+```text
+WAKE DETECTED
+      ↓
+play acknowledgement chime
+      ↓
+LISTENING
+```
+
+---
+
+# Voice Activity Detection
+
+Planned VAD:
+
+```text
+Silero VAD
+```
+
+Purpose:
+
+```text
+detect when speech begins
+detect when speech ends
+avoid fixed recording durations
+```
+
+Example:
+
+```text
+"Hey Eve"
+      ↓
+*dink*
+      ↓
+LISTEN
+
+"What's the weather tomorrow?"
+
+      ↓
+speech ends
+      ↓
+~500-800 ms silence
+      ↓
+stop recording
+```
+
+The silence threshold will be tuned during testing.
+
+---
+
+# Speech-to-Text
+
+Planned STT:
+
+```text
+faster-whisper
+```
+
+Likely model:
+
+```text
+Whisper large-v3-turbo
+```
+
+This should run on the AI server rather than the mirror client.
+
+The mirror sends recorded speech over the LAN.
+
+Example:
+
+```text
+Mirror microphone
+      ↓
+WAV/audio stream
+      ↓
+AI server
+      ↓
+faster-whisper
+      ↓
+"Is it cold outside?"
+```
+
+---
+
+# Text-to-Speech
+
+Initial TTS target:
+
+```text
+Kokoro-82M
+```
+
+Purpose:
+
+```text
+Qwen text
+    ↓
+Kokoro
+    ↓
+audio
+    ↓
+mirror speakers
+```
+
+Piper is a possible lightweight alternative.
+
+TTS will initially run on the AI server.
+
+---
+
+# Dashboard
+
+The dashboard should be a web application.
+
+Recommended stack:
+
+```text
+React
+TypeScript
+Chromium kiosk
+WebSockets
+```
+
+The mirror launches Chromium fullscreen automatically.
+
+Example dashboard capabilities:
+
+```text
+weather
+calendar
+clock
+music
+Home Assistant state
+timers
+notifications
+search results
+```
+
+---
+
+# Dashboard Tool Calls
+
+Qwen should control the dashboard through structured tools instead of mouse/vision control.
+
+Examples:
+
+```text
+dashboard.show_weather()
+
+dashboard.show_calendar()
+
+dashboard.show_music()
+
+dashboard.show_home()
+
+dashboard.set_layout(
+    left="calendar",
+    right="weather"
+)
+```
+
+The agent translates these into WebSocket messages.
+
+Example:
+
+```json
+{
+  "event": "show_widget",
+  "widget": "weather"
+}
+```
+
+The React dashboard responds immediately.
+
+---
+
+# Automatic UI Behavior
+
+Some dashboard behavior can occur automatically based on tool usage.
+
+Example:
+
+```text
+User:
+"Is it cold outside?"
+
+Qwen:
+weather.current()
+
+        ↓
+
+Agent sees weather tool was used
+
+        ↓
+
+automatically display weather widget
+```
+
+This avoids requiring Qwen to issue redundant dashboard commands for obvious cases.
+
+Explicit requests still work:
+
+```text
+"Show me the full weather forecast."
+```
+
+can trigger a full weather view.
+
+---
+
+# Web Search
+
+The model should not directly access the internet.
+
+Instead Eve will receive a search tool.
+
+Possible implementations:
+
+```text
+SearXNG
+search API
+custom web-search MCP server
+```
+
+Example:
+
+```text
+User:
+"When is the next SpaceX launch?"
+
+        ↓
+
+Qwen recognizes current information is needed
+
+        ↓
+
+web.search(...)
+
+        ↓
+
+search results
+
+        ↓
+
+Qwen summarizes them
+```
+
+This lets the underlying LLM remain completely local while still retrieving current information when requested.
+
+---
+
+# Presence and Display Control
+
+Presence detection should remain simple and separate from the LLM.
+
+Possible sensor:
+
+```text
+mmWave presence sensor
+```
+
+Behavior:
+
+```text
+active hours?
+     ↓
+yes
+     ↓
+person detected?
+     ↓
+yes
+     ↓
+LCD on
+```
+
+After a configurable period without presence:
+
+```text
+LCD off
+```
+
+No large computer-vision model is planned.
+
+---
+
+# Mirror Runtime States
+
+Recommended state machine:
+
+```text
+NIGHT
+│
+│ wake functions limited
+│ display off
+│
+▼
+
+IDLE
+│
+│ wake-word detection active
+│ presence monitoring active
+│ CPU mostly idle
+│
+▼
+
+LISTENING
+│
+│ VAD active
+│ microphone recording
+│
+▼
+
+PROCESSING
+│
+│ audio sent to AI server
+│ dashboard indicates activity
+│
+▼
+
+SPEAKING
+│
+│ Eve response playing
+│ dashboard updated
+│
+▼
+
+SESSION_IDLE
+│
+│ recent conversation retained
+│ waiting for follow-up
+│
+▼
+
+TIMEOUT
+│
+│ conversation deleted
+│
+▼
+
+IDLE
+```
+
+---
+
+# Follow-Up Conversation Behavior
+
+During an active session, the user should not necessarily have to repeat:
+
+```text
+"Hey Eve"
+```
+
+Example:
+
+```text
+User:
+"Hey Eve"
+
+User:
+"What's the weather today?"
+
+Eve:
+"It's 65 degrees and cloudy."
+
+User:
+"What about tomorrow?"
+
+Eve:
+"Tomorrow should be warmer..."
+```
+
+After approximately:
+
+```text
+30-60 seconds
+```
+
+of inactivity:
+
+```text
+session ends
+conversation.clear()
+```
+
+Then the next interaction requires:
+
+```text
+"Hey Eve"
+```
+
+again.
+
+---
+
+# Security Model
+
+The LLM proposes actions.
+
+The Eve Agent authorizes and executes them.
+
+```text
+Qwen:
+"I want to call set_light(...)"
+
+        ↓
+
+Eve Agent:
+Is this tool allowed?
+Are the arguments valid?
+Does this require confirmation?
+
+        ↓
+
+MCP Client
+
+        ↓
+
+MCP Server
+```
+
+Different tools can have different permission levels.
+
+### Low-Risk
+
+```text
+weather lookup
+time lookup
+calendar read
+lights
+music
+dashboard
+volume
+```
+
+Generally execute immediately.
+
+### Higher-Risk
+
+```text
+unlock door
+open garage
+disable alarm
+delete calendar item
+send messages
+make purchases
+```
+
+Require explicit confirmation or additional authorization.
+
+The model itself should never receive raw service credentials.
+
+---
+
+# Development Order
+
+## Phase 1 — Wake Word
+
+Status:
+
+```text
+COMPLETE
+```
+
+Components:
+
+```text
+Python 3.11
+openWakeWord
+Hey Eve ONNX
+microphone input
+```
+
+Goal:
+
+```text
+"Hey Eve"
+    ↓
+reliable wake detection
+```
+
+---
+
+## Phase 2 — Voice Capture
+
+Status:
+
+```text
+IN PROGRESS
+```
+
+Implementation: `mirror_client/listen.py`
+
+Add:
+
+```text
+Silero VAD
+acknowledgement chime
+command recording
+```
+
+Goal:
+
+```text
+Hey Eve
+ ↓
+*dink*
+ ↓
+speak command
+ ↓
+automatically stop recording
+ ↓
+command.wav
+```
+
+---
+
+## Phase 3 — Speech-to-Text
+
+Status:
+
+```text
+IN PROGRESS
+```
+
+Implementation: `eve_agent/transcribe.py`
+
+Add:
+
+```text
+faster-whisper
+```
+
+Goal:
+
+```text
+command.wav
+ ↓
+"What's the weather tomorrow?"
+```
+
+---
+
+## Phase 4 — Text Agent
+
+Status:
+
+```text
+IN PROGRESS
+```
+
+Implementation: `eve_agent/agent.py`
+
+Create Eve Agent.
+
+Add:
+
+```text
+Ollama API
+temporary conversation context
+think=false default
+tool handling
+```
+
+Goal:
+
+```text
+typed/transcribed text
+      ↓
+Qwen
+      ↓
+correct natural response
+```
+
+---
+
+## Phase 5 — Test MCP Server
+
+Status:
+
+```text
+IN PROGRESS
+```
+
+Implementation: `eve_agent/tooling.py`, `mcp_servers/test_server.py`
+
+Create fake tools:
+
+```text
+get_weather()
+get_time()
+set_light()
+show_dashboard()
+```
+
+Goal:
+
+```text
+natural language
+      ↓
+Qwen selects tool
+      ↓
+MCP executes tool
+      ↓
+Qwen receives result
+      ↓
+natural response
+```
+
+---
+
+## Phase 6 — Full Voice Loop
+
+Status:
+
+```text
+NOT STARTED
+```
+
+Add Kokoro.
+
+Goal:
+
+```text
+Hey Eve
+ ↓
+speech
+ ↓
+Whisper
+ ↓
+Qwen
+ ↓
+MCP
+ ↓
+Qwen
+ ↓
+Kokoro
+ ↓
+spoken answer
+```
+
+---
+
+## Phase 7 — Temporary Sessions
+
+Status:
+
+```text
+NOT STARTED
+```
+
+Add session state.
+
+Goal:
+
+```text
+follow-up conversation works
+      ↓
+timeout
+      ↓
+history deleted
+```
+
+---
+
+## Phase 8 — Dashboard
+
+Status:
+
+```text
+NOT STARTED
+```
+
+Build:
+
+```text
+React + TypeScript
+Chromium kiosk
+WebSocket connection
+```
+
+Goal:
+
+```text
+"Show the weather."
+      ↓
+dashboard changes automatically
+```
+
+---
+
+## Phase 9 — Home Assistant
+
+Status:
+
+```text
+NOT STARTED
+```
+
+Replace/supplement fake tools with:
+
+```text
+Home Assistant MCP Server
+```
+
+Goal:
+
+```text
+"Turn the living room lights off."
+
+       ↓
+
+Qwen
+       ↓
+Home Assistant MCP
+       ↓
+lights off
+```
+
+---
+
+## Phase 10 — Search and Other Services
+
+Status:
+
+```text
+NOT STARTED
+```
+
+Add:
+
+```text
+web search
+calendar
+music
+Plex/media
+timers
+notifications
+other smart-home services
+```
+
+---
+
+## Phase 11 — Dedicated Hardware
+
+Status:
+
+```text
+NOT STARTED
+```
+
+Move:
+
+```text
+Ollama
+Whisper
+Eve Agent
+Kokoro
+```
+
+from the Windows development PC to the permanent Linux AI workstation.
+
+The mirror-side software should require little or no modification.
+
+---
+
+# Final Intended Architecture
+
+```text
+                         SMART MIRROR
+                    ThinkPad T580 Thin Client
+                             │
+                             │
+                ┌────────────┴────────────┐
+                │                         │
+          openWakeWord                React UI
+           "Hey Eve"                  Chromium
+                │                         │
+              Silero                      │
+                │                         │
+          audio recording                 │
+                │                         │
+                └──────────LAN────────────┘
+                             │
+                             ▼
+                     EVE AI SERVER
+                             │
+                     faster-whisper
+                             │
+                             ▼
+                       Eve Agent
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+              ▼              ▼              ▼
+           Ollama           MCP          WebSocket
+              │              │              │
+              ▼              ▼              ▼
+        Abliterated Qwen   Services      Dashboard
+                             │
+                    ┌────────┼────────┐
+                    ▼        ▼        ▼
+                   Home    Weather  Calendar
+                Assistant           Music/Search
+                             │
+                             ▼
+                           Qwen
+                             │
+                             ▼
+                          Kokoro
+                             │
+                             ▼
+                    Mirror speakers
+```
+
+## Core Design Principles
+
+1. **Local-first.**
+2. **No permanent conversational memory by default.**
+3. **Fast/no-think responses for ordinary assistant commands.**
+4. **LLM requests actions; deterministic software executes them.**
+5. **Credentials remain outside the models.**
+6. **Home Assistant remains independent from Eve.**
+7. **The mirror remains a lightweight edge client.**
+8. **Heavy AI computation runs on a dedicated server.**
+9. **MCP is the primary standardized tool interface.**
+10. **Each subsystem should be independently testable and replaceable.**

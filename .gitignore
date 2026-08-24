@@ -6,29 +6,58 @@
 *.opus
 
 # Downloaded datasets
-hey_eve_training/audioset/
-hey_eve_training/audioset_16k/
-hey_eve_training/fma/
-hey_eve_training/MIT_environmental_impulse_responses/
-hey_eve_training/mit_rirs/
+wake_word_training/audioset/
+wake_word_training/audioset_16k/
+wake_word_training/fma/
+wake_word_training/MIT_environmental_impulse_responses/
+wake_word_training/mit_rirs/
+
+# Vendored wake word training dependencies
+wake_word_training/openwakeword/
+wake_word_training/piper-sample-generator/
 
 # Downloaded pre-computed feature files
-hey_eve_training/openwakeword_features_ACAV100M_2000_hrs_16bit.npy
-hey_eve_training/validation_set_features.npy
+wake_word_training/openwakeword_features_ACAV100M_2000_hrs_16bit.npy
+wake_word_training/validation_set_features.npy
 
 # Downloaded voice model
-hey_eve_training/models/
+wake_word_training/models/
 
 # Training outputs
-hey_eve_training/my_custom_model/
-hey_eve_training/runs/
-hey_eve_training/clips/
+wake_word_training/my_custom_model/
+wake_word_training/runs/
+wake_word_training/clips/
 
 # Temp text files written before each clip generation batch
-hey_eve_training/_texts_*.txt
+wake_word_training/_texts_*.txt
 
 # Python virtual environment
-hey_eve_training/piper_venv/
+wake_word_training/piper_venv/
 
 # Downloaded binary dependency
-hey_eve_training/piper-phonemize_win/
+wake_word_training/piper-phonemize_win/
+wake_word_training/piper-phonemize_windows.zip
+
+# Local Python/cache artifacts inside wake word training
+wake_word_training/**/__pycache__/
+wake_word_training/**/*.pyc
+wake_word_training/.pytest_cache/
+wake_word_training/.mypy_cache/
+wake_word_training/.ruff_cache/
+
+# Nonessential generated training artifacts
+wake_word_training/**/*.npy
+wake_word_training/**/*.npz
+wake_word_training/**/*.onnx
+wake_word_training/**/*.tflite
+wake_word_training/**/*.pb
+wake_word_training/**/*.pdb
+wake_word_training/**/*.bin
+wake_word_training/**/*.ckpt
+wake_word_training/**/*.h5
+wake_word_training/**/*.pt
+wake_word_training/**/*.pth
+wake_word_training/**/*.log
+
+# Recorded command audio
+mirror_client/recordings/
