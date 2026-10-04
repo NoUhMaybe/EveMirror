@@ -39,6 +39,154 @@ Core voice pipeline, agent, weather tool routing/cache, dashboard rendering, and
 
 ---
 
+# Current Implementation Flow (As Built)
+
+This section documents what is actually wired together and running today. It is
+more granular than the conceptual "Interaction Flow" and planned architecture
+sections further down this document, which describe where the project is headed
+(real MCP servers, model-initiated tool calls, Home Assistant, etc.). See
+"Tool routing is deterministic, not model-driven" below for a concrete note on
+the current vs. planned tool-calling model.
+
+## Process topology — who starts what
+
+`mirror_client/runtime.py` is the supervisor used for always-on operation. It
+spawns and auto-restarts three independent OS processes and gates the voice
+worker on an Ollama health check:
+
+```mermaid
+flowchart TD
+    R["runtime.py (supervisor)"] -->|spawn, immediately| ES["dashboard_event_server.py<br/>WS ws://127.0.0.1:8765<br/>UDP ingest 127.0.0.1:8766"]
+    R -->|spawn, immediately| L["listen.py<br/>wake word + VAD"]
+    R -->|poll GET /api/tags every 1s| H{Ollama reachable?}
+    H -->|no| H
+    H -->|yes| VL["voice_loop.py --watch"]
+    L -->|writes WAV on end of speech| WAV[("mirror_client/recordings/*.wav")]
+    VL -->|polls dir every 0.5s| WAV
+
+    R -. "monitors + restarts on crash<br/>(3s backoff)" .-> ES
+    R -. restarts .-> L
+    R -. restarts .-> VL
+```
+
+`eve_agent/agent.py` is a separate, independent entry point: running it directly
+with `--text`/`--audio`/interactively exercises the same tooling → Ollama → TTS →
+dashboard-event path described below, but without the mic/wake-word pipeline or
+the `runtime.py` supervisor.
+
+## One full voice turn, end to end
+
+```mermaid
+sequenceDiagram
+    participant Mic
+    participant listen as listen.py
+    participant Disk as recordings/*.wav
+    participant VL as voice_loop.py
+    participant STT as transcribe.py (faster-whisper)
+    participant Tool as tooling.maybe_call_tools()
+    participant Agent as agent.py (build_messages/ask_ollama)
+    participant Ollama
+    participant TTS as tts_local.py (Piper)
+    participant UDP as dashboard_events.emit_event()
+    participant WS as dashboard_event_server.py
+    participant UI as Dashboard (App.tsx)
+
+    Mic->>listen: continuous 16kHz audio
+    listen->>listen: openWakeWord scores each 80ms window
+    listen->>listen: "Hey Eve" >= threshold -> play chime
+    listen->>listen: Silero VAD records until trailing silence/15s cap
+    listen->>Disk: write command_<timestamp>.wav
+    VL->>Disk: detect new file (poll loop)
+    VL->>UDP: state_change TRANSCRIBING
+    VL->>STT: transcribe(wav)
+    STT-->>VL: user text
+    VL->>UDP: user_transcript {text}
+    VL->>Tool: should_enable_thinking(text)
+    VL->>UDP: state_change THINKING {think}
+    VL->>Agent: build_messages(base_messages, text)
+    Agent->>Tool: maybe_call_tools(text)
+    Note over Tool: deterministic keyword/regex routing;<br/>executes weather/time/backlight synchronously<br/>(real HTTP + real serial writes), *before* the model runs
+    Tool-->>Agent: notes[] + payload{} (weather, time, backlight, smart_home_attempt stub)
+    Agent->>Agent: append payload as "trusted local tool context" to the user message
+    Agent->>Ollama: POST /api/chat {model, messages, think}
+    Ollama-->>Agent: natural-language reply (narrates the pre-fetched context)
+    VL->>UDP: assistant_response {text}
+    VL->>TTS: speak(reply)
+    TTS->>UDP: subtitle_prepare / subtitle_progress / tts_audio_level / tts_audio_bands / subtitle_done
+    TTS-->>Mic: audio out (speakers)
+    VL->>UDP: state_change IDLE
+    UDP->>WS: one UDP JSON datagram per emit_event() call
+    WS->>UI: re-broadcast same JSON to every connected WebSocket client
+    UI->>UI: handleEvent() drives activity/animation, subtitles, weather tile
+```
+
+## Tool routing is deterministic, not model-driven
+
+`tooling.maybe_call_tools(user_text)` is plain Python keyword/regex matching run
+**before** the Ollama call — Qwen is never given a tool/function-calling schema
+(`ask_ollama`'s request body is just `{model, messages, stream, think}`) and
+never decides which tool to invoke. The agent decides, executes the action, and
+hands the model a pre-computed result to narrate:
+
+```mermaid
+flowchart TD
+    T[maybe_call_tools text] --> W{weather keywords?}
+    W -->|yes| GW["get_current_weather()<br/>real Open-Meteo HTTP call + JSON disk cache"]
+    T --> TM{time/date keywords?}
+    TM -->|yes| GT[get_current_time]
+    T --> BL{backlight/screen-brightness keywords?}
+    BL -->|yes| RB["resolve_backlight_target_percent()"] --> SB["set_backlight_brightness()<br/>real serial write to Feather over USB<br/>(firmware clamps 0-100% to 0-2V DAC)"]
+    T --> SH{other light/thermostat/garage/alarm keywords?}
+    SH -->|yes| STUB["smart_home_attempt stub<br/>(status=attempted_not_executed, no device call)"]
+    GW --> P[notes + payload]
+    GT --> P
+    SB --> P
+    STUB --> P
+    P -->|merged into user message as trusted context| Agent[agent.build_messages]
+```
+
+`mcp_servers/test_server.py` mirrors a few of these as `*_tool()` functions in an
+MCP-shaped module, but nothing in `agent.py` or `voice_loop.py` imports or runs
+it — it is unused scaffolding for the real MCP integration described in the
+"MCP Architecture" and "Phase 5 — Test MCP Server" sections below, not part of
+the live request path today.
+
+## Dashboard event delivery
+
+All runtime state (transcripts, replies, subtitles, TTS audio levels, weather
+tile data, layout changes) reaches the browser through one shared relay:
+
+```mermaid
+flowchart LR
+    E1[agent.py / voice_loop.py] -->|emit_event type,payload| U[(UDP 127.0.0.1:8766)]
+    E2[tts_local.py] -->|emit_event| U
+    U --> S[dashboard_event_server.py]
+    S -->|broadcast JSON| C1[Dashboard tab 1]
+    S -->|broadcast JSON| C2[Dashboard tab N]
+    C1 -->|dashboard_refresh_weather over WS| S
+    S -->|fetch| GW2[tooling.get_current_weather]
+    GW2 -->|tool_context envelope| S
+```
+
+`dashboard_event_server.py` is the only component that listens on both sides: it
+re-broadcasts anything it receives over UDP to every connected WebSocket client,
+and it is also the sole handler for one inbound WS message type
+(`dashboard_refresh_weather`, used by the dashboard's manual weather-refresh
+button), which it turns into a fresh `tool_context` broadcast.
+
+## Entry points at a glance
+
+| Command | What it does |
+|---|---|
+| `python mirror_client/runtime.py` | Supervises listener + event server + voice loop forever, with crash auto-restart. Primary "always on" entry point. |
+| `python mirror_client/listen.py` | Wake word + VAD capture only; writes WAV files. Started by `runtime.py`, or run standalone for mic tuning. |
+| `python eve_agent/voice_loop.py --watch` | Watches `recordings/` and runs each new WAV through STT → tools → Ollama → TTS → dashboard events. Started by `runtime.py`. |
+| `python eve_agent/voice_loop.py --audio <wav>` | Same pipeline, one specific WAV, no watching. |
+| `python eve_agent/agent.py --text "..."` / `--audio <wav>` / interactive | Same tooling/Ollama/TTS/event path as `voice_loop.py`, entered directly with typed text or a specific recording — no mic, no wake word, no `runtime.py`. |
+| `python eve_agent/dashboard_event_server.py` | Standalone WS (`:8765`) + UDP (`:8766`) relay. Required for the dashboard to show any live state; started by `runtime.py`. |
+
+---
+
 # Startup Commands (Current Dev Workflow)
 
 Run commands from the repository root unless noted.

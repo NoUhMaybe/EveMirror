@@ -6,7 +6,10 @@ from typing import Dict, List, Optional, Tuple
 
 import requests
 
+from backlight_control import get_last_known_brightness, set_backlight_brightness
+
 DEFAULT_LOCATION = "Frisco, Texas"
+BACKLIGHT_ADJUST_STEP = 20
 DEFAULT_LAT = 33.1507
 DEFAULT_LON = -96.8236
 WEEKLY_REFRESH_SECONDS = 3 * 60 * 60
@@ -107,6 +110,36 @@ def is_weather_request(user_text: str) -> bool:
         "tonight",
     ]
     return any(m in text for m in weather_markers)
+
+
+def is_backlight_request(user_text: str) -> bool:
+    text = user_text.lower()
+    markers = ["backlight", "screen brightness", "display brightness", "mirror brightness"]
+    return any(m in text for m in markers)
+
+
+def resolve_backlight_target_percent(user_text: str, current_percent: Optional[int]) -> Optional[int]:
+    """Return the target brightness 0-100, or None if the request has no actionable target."""
+    text = user_text.lower()
+
+    match = re.search(r"(\d{1,3})\s*%", text) or re.search(r"\b(\d{1,3})\b", text)
+    if match:
+        return max(0, min(100, int(match.group(1))))
+
+    if re.search(r"\boff\b", text):
+        return 0
+    if any(k in text for k in ["full", "max", "maximum", "brightest"]) or re.search(r"\bon\b", text):
+        return 100
+    if re.search(r"\bhalf\b", text):
+        return 50
+
+    base = current_percent if current_percent is not None else 50
+    if any(k in text for k in ["dim", "darker", "lower", "down"]):
+        return max(0, base - BACKLIGHT_ADJUST_STEP)
+    if any(k in text for k in ["brighten", "brighter", "raise", "up"]):
+        return min(100, base + BACKLIGHT_ADJUST_STEP)
+
+    return None
 
 
 def get_current_time() -> Dict[str, str]:
@@ -652,7 +685,24 @@ def maybe_call_tools(user_text: str) -> Tuple[List[str], Dict[str, object]]:
         payload["time"] = now
         notes.append(f"time tool used (local={now['readable']})")
 
-    if any(k in text for k in ["light", "lights", "thermostat", "garage", "alarm", "switch", "home assistant"]):
+    if is_backlight_request(user_text):
+        current = get_last_known_brightness()
+        target = resolve_backlight_target_percent(user_text, current)
+        if target is None:
+            if current is None:
+                payload["backlight"] = {"status": "unknown", "detail": "No brightness has been set yet this session."}
+                notes.append("backlight status requested; no brightness set yet")
+            else:
+                payload["backlight"] = {"status": "ok", "brightness_percent": current}
+                notes.append(f"backlight status requested (current={current}%)")
+        else:
+            result = set_backlight_brightness(target)
+            payload["backlight"] = result
+            if result.get("status") == "ok":
+                notes.append(f"backlight tool used (brightness_percent={result['brightness_percent']})")
+            else:
+                notes.append(f"backlight tool failed ({result.get('error')})")
+    elif any(k in text for k in ["light", "lights", "thermostat", "garage", "alarm", "switch", "home assistant"]):
         payload["smart_home_attempt"] = {
             "status": "attempted_not_executed",
             "details": "Smart-home execution is intentionally stubbed in this phase.",
