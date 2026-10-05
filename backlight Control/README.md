@@ -105,8 +105,14 @@ Newline-terminated ASCII commands over the data serial port:
 | Direction | Message | Meaning |
 |---|---|---|
 | Pi -> Feather | `B75\n` | Set brightness to 75% (maps to 0-2V) |
-| Feather -> Pi | `OK 75\n` | Acknowledges the new brightness |
+| Feather -> Pi | `OK 75\n` | Acknowledges the new brightness (sent as soon as the fade starts, not when it finishes) |
 | Feather -> Pi | `ERR <msg>\n` | Bad command or value |
+
+On the Feather, each `B<pct>` command eases the DAC from its current level to
+the new target over 1.5s (ease-out: fast at first, slowing into the target)
+instead of snapping instantly — see `FADE_DURATION_S`/`update_fade()` in
+[feather/code.py](feather/code.py). Sending a new `B<pct>` mid-fade smoothly
+retargets from the DAC's current in-flight value, no jump.
 
 ## Troubleshooting
 

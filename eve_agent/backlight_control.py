@@ -49,3 +49,25 @@ def set_backlight_brightness(percent: int) -> Dict[str, object]:
 
 def get_last_known_brightness() -> Optional[int]:
     return _last_percent
+
+
+def main() -> None:
+    """Manual CLI for testing the backlight without running the agent/model.
+
+    Usage: python backlight_control.py 75
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Manually set the mirror backlight brightness (0-100%).")
+    parser.add_argument("percent", type=int, help="Brightness percent 0-100")
+    args = parser.parse_args()
+
+    result = set_backlight_brightness(args.percent)
+    if result["status"] == "ok":
+        print(f"Backlight set to {result['brightness_percent']}%")
+    else:
+        raise SystemExit(f"Backlight error: {result['error']}")
+
+
+if __name__ == "__main__":
+    main()

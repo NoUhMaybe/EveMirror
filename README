@@ -184,6 +184,7 @@ button), which it turns into a fresh `tool_context` broadcast.
 | `python eve_agent/voice_loop.py --audio <wav>` | Same pipeline, one specific WAV, no watching. |
 | `python eve_agent/agent.py --text "..."` / `--audio <wav>` / interactive | Same tooling/Ollama/TTS/event path as `voice_loop.py`, entered directly with typed text or a specific recording — no mic, no wake word, no `runtime.py`. |
 | `python eve_agent/dashboard_event_server.py` | Standalone WS (`:8765`) + UDP (`:8766`) relay. Required for the dashboard to show any live state; started by `runtime.py`. |
+| `python eve_agent/backlight_control.py <0-100>` | Manually sets the mirror backlight brightness directly over serial, independent of Ollama/the agent — for testing the Feather/panel without the model running. |
 
 ---
 
