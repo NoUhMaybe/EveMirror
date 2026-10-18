@@ -61,3 +61,33 @@ wake_word_training/**/*.log
 
 # Recorded command audio
 mirror_client/recordings/
+
+# Runtime dependencies and generated outputs (keep lockfiles)
+.venv/
+.venv-*/
+**/node_modules/
+**/dist/
+**/__pycache__/
+*.py[cod]
+*.tsbuildinfo
+dashboard/vite.config.js
+dashboard/vite.config.d.ts
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+.coverage
+htmlcov/
+
+# Private configuration and local state
+.env
+.env.*
+!.env.example
+!*.env.example
+*.sqlite3
+*.sqlite3-*
+data/
+eve_agent/weather_cache.json
+eve_agent/weather_cache.json.tmp
+*.log
