@@ -1,0 +1,12 @@
+# Resolved and tested on Python 3.12.10 / Windows, 2026-10-17.
+# Platform wheels are selected by pip; Linux/Pi installation requires CI/hardware validation.
+-r common.lock
+annotated-doc==0.0.5
+anyio==4.15.1
+click==8.5.0
+fastapi==0.143.3
+h11==0.16.0
+idna==3.20
+opentelemetry-api==1.45.1
+starlette==1.8.0
+uvicorn==0.54.0

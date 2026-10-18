@@ -1,0 +1,15 @@
+services:
+  eve-server:
+    build:
+      context: ../..
+      dockerfile: deploy/server/Dockerfile
+    env_file: server.env
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 15s

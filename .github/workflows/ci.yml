@@ -1,0 +1,41 @@
+name: development checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  foundation:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements/*.lock
+      - run: python -m pip install -r requirements/dev.lock
+      - run: python -m pip install --no-deps -e .
+      - run: python -m ruff check apps packages scripts tests
+      - run: python -m ruff format --check apps packages scripts tests
+      - run: python -m pytest -q
+      - run: python scripts/export_protocol.py
+      - run: git diff --exit-code -- packages/protocol/schema.json
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build

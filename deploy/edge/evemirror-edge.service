@@ -1,0 +1,25 @@
+[Unit]
+Description=Eve Edge authenticated transport and Feather owner
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=evemirror
+Group=evemirror
+SupplementaryGroups=audio dialout
+WorkingDirectory=/var/lib/evemirror
+EnvironmentFile=/etc/evemirror/edge.env
+ExecStart=/opt/evemirror/.venv/bin/python -m apps.edge.runtime
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+StateDirectory=evemirror
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/evemirror
+
+[Install]
+WantedBy=multi-user.target

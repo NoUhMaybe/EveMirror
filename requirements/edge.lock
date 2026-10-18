@@ -1,0 +1,4 @@
+# Resolved and tested on Python 3.12.10 / Windows, 2026-10-17.
+# Platform wheels are selected by pip; Linux/Pi installation requires CI/hardware validation.
+-r common.lock
+pyserial==3.5

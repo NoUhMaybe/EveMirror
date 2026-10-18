@@ -88,6 +88,9 @@ htmlcov/
 *.sqlite3
 *.sqlite3-*
 data/
+.assets/
+deploy/server/server.env
+deploy/edge/edge.env
 eve_agent/weather_cache.json
 eve_agent/weather_cache.json.tmp
 *.log
