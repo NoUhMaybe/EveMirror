@@ -23,8 +23,8 @@ async def until(predicate):
 
 
 @asynccontextmanager
-async def live_server(settings, consumer=None):
-    app = create_app(settings, audio_consumer=consumer)
+async def live_server(settings, consumer=None, **app_kwargs):
+    app = create_app(settings, audio_consumer=consumer, **app_kwargs)
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
     port = listener.getsockname()[1]

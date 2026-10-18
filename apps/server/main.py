@@ -4,18 +4,30 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import secrets
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from pydantic import Field, ValidationError
+from starlette.responses import JSONResponse
 
 from apps.config import ServerSettings
+from apps.server.agent.api import agent_router
+from apps.server.agent.body_limit import AgentBodyLimit
+from apps.server.agent.orchestrator import Orchestrator
+from apps.server.agent.sessions import SessionStore
 from apps.server.audio import AudioAssembler, AudioError, CompletedAudio
+from apps.server.auth import authenticated
 from apps.server.gateway import Gateway, GatewayError
+from apps.server.providers.base import LLMProvider
+from apps.server.providers.factory import create_provider
+from apps.server.tools.mcp_client import MCPManager
+from apps.server.tools.native import register_native
+from apps.server.tools.registry import ToolRegistry
 from packages.protocol import (
     AudioBegin,
     AudioChunk,
@@ -38,12 +50,6 @@ logger = logging.getLogger("eve.server")
 AudioConsumer = Callable[[CompletedAudio], Awaitable[None]]
 
 
-def authenticated(header: str | None, expected: str) -> bool:
-    if not header or not header.startswith("Bearer "):
-        return False
-    return secrets.compare_digest(header[7:].encode(), expected.encode())
-
-
 async def receive_text(socket: WebSocket) -> str:
     frame = await socket.receive()
     if frame["type"] == "websocket.disconnect":
@@ -61,29 +67,63 @@ class CommandSubmission(Model):
 def create_app(
     settings: ServerSettings | None = None,
     audio_consumer: AudioConsumer | None = None,
+    llm_provider: LLMProvider | None = None,
+    native_clock=None,
 ) -> FastAPI:
     settings = settings or ServerSettings()
     gateway = Gateway(settings)
     consumers: set[asyncio.Task] = set()
+    registry = ToolRegistry()
+    register_native(registry, gateway, clock=native_clock)
+    provider, configuration_error = (
+        (llm_provider, None) if llm_provider else create_provider(settings)
+    )
+    sessions = SessionStore(settings.agent)
+    mcp = MCPManager(settings.mcp_servers, registry)
+    agent = Orchestrator(settings, provider, registry, sessions, mcp)
+
+    async def expire_sessions():
+        while True:
+            await asyncio.sleep(min(5, settings.agent.session_idle_seconds / 2))
+            sessions.expire()
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        for connection in list(gateway.connections.values()):
-            await connection.socket.close(code=1012)
-        for task in list(consumers):
-            task.cancel()
-        await asyncio.gather(*consumers, return_exceptions=True)
+        await mcp.refresh()
+        reaper = asyncio.create_task(expire_sessions())
+        try:
+            yield
+        finally:
+            reaper.cancel()
+            await asyncio.gather(reaper, return_exceptions=True)
+            await sessions.close()
+            await mcp.close()
+            if provider:
+                await provider.close()
+            for connection in list(gateway.connections.values()):
+                await connection.socket.close(code=1012)
+            for task in list(consumers):
+                task.cancel()
+            await asyncio.gather(*consumers, return_exceptions=True)
 
     app = FastAPI(
         title="Eve Server",
-        version="0.2.0",
+        version="0.3.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
     )
     app.state.gateway = gateway
+    app.state.agent = agent
+    app.include_router(agent_router(settings, agent, mcp, configuration_error))
+    app.add_middleware(AgentBodyLimit)
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request, error):
+        if request.url.path.startswith("/api/agent"):
+            return JSONResponse({"detail": "invalid_request"}, status_code=422)
+        return await request_validation_exception_handler(request, error)
 
     async def operator(authorization: str | None = Header(default=None)):
         if not authenticated(authorization, settings.operator_token.get_secret_value()):
@@ -105,7 +145,7 @@ def create_app(
             "audio_received": gateway.audio_received,
             "active_audio_consumers": len(consumers),
             "errors": gateway.errors,
-            "provider": "unconfigured",
+            "provider": settings.llm_provider if provider else "unconfigured",
             "stt": "unconfigured",
             "tts": "unconfigured",
             "home_assistant": "unconfigured",

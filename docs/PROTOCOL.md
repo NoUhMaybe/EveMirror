@@ -90,8 +90,9 @@ STT/TTS readiness is inferred from this transport test.
 
 ## Operator endpoints
 
-All `/api/*` endpoints require the separate operator Bearer token. Device tokens
-cannot issue operator requests. Do not distribute the operator token to browsers.
+Existing operator endpoints require the separate operator Bearer token. Agent
+endpoints additionally accept explicitly configured scoped backend clients. Device
+tokens cannot issue these HTTP requests. Do not distribute privileged tokens to browsers.
 
 - `GET /api/state`: current snapshot, including offline configured devices.
 - `GET /api/health`: readiness, edge heartbeats/status, errors and audio counters.
@@ -102,4 +103,38 @@ cannot issue operator requests. Do not distribute the operator token to browsers
 - `GET /health/live`: unauthenticated status only, suitable for loopback/container checks.
 
 Current snapshots restore transport/hardware metadata, not timers, weather or
-conversations. Those services and scoped browser authentication are pending.
+conversations. Temporary agent context is private to its authenticated principal;
+its API is separate from device protocol v1. Timers/weather and browser
+authentication remain pending.
+
+## Text agent HTTP API (Phase 3)
+
+`POST /api/agent/turn` accepts `text`, optional `session_id`, optional `device_id`,
+and optional `request_id` UUID (send an explicit UUID to recognize retries). It
+returns session/request IDs, final `response`, `provider`, `model`, `status`, stable
+`error` code, `tools` summaries, summed token `usage` and `latency_ms`. Accepted
+turns use HTTP 200; inspect `complete` / `error` / `cancelled` status and each tool
+summary. A final response can describe a failed tool. Tool arguments, raw outputs
+and private reasoning blocks are not returned in summaries. Reused tool receipts
+are marked `replayed=true`; they describe earlier execution, not new observations.
+
+`POST /api/agent/sessions` creates context; `POST /api/agent/sessions/{id}/reset`
+clears it; `/cancel` cancels its active task. `GET /api/agent/status` returns only
+non-secret configuration/policy/availability. Origin headers and edge credentials
+are rejected. Separate agent-client tokens are optional, with device allowlists
+and mutation policy; they grant no access to existing operator endpoints. Foreign
+or expired sessions return 404. Active-session/request conflicts return 409,
+unconfigured providers/capacity return 503, invalid input 422, and bodies over
+32 KiB 413. Sessions expire after 60 idle seconds by default.
+
+Turn UUIDs reuse bounded in-memory receipts until session expiry. Context reset
+retains retry receipts. Evicted response text leaves a tombstone that returns
+409 `retry_result_expired`, never re-execution. These are not a persistent agent
+transaction journal. Hardware mutations derive stable UUIDs from the turn,
+principal/device and typed command, and use the same gateway deadline, ACK/error
+and durable edge journal as existing operator commands. No alternate wire route
+was added, and the v1 device/audio JSON Schema is unchanged.
+
+The API cannot override provider/model, permissions or confirmation through input.
+For full schemas, configuration, privacy and examples see
+[PHASE3_AGENT.md](PHASE3_AGENT.md).

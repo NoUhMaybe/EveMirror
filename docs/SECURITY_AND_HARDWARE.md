@@ -5,9 +5,11 @@
 Operator and per-device credentials are distinct, required, redacted in settings,
 and never sent in browser bundles or URLs. The gateway exposes only typed
 brightness/display/status commands. It has no shell, filesystem, arbitrary serial,
-raw-network, Home Assistant or cloud-inference action. Device credentials cannot
+raw-network or Home Assistant action. The text agent supports explicitly selected
+cloud inference only after a backend configuration opt-in. Device credentials cannot
 call operator HTTP endpoints. Browser Origins cannot connect to the edge endpoint.
-This is device/operator authorization; the LLM tool permission registry comes later.
+The Phase 3 tool executor additionally enforces argument schemas, device
+allowlists, mutation permissions, confirmation blocks and execution bounds.
 
 The edge alone owns serial. Use a stable, verified data interface. Auto-discovery
 only accepts one Adafruit port explicitly identified as a data interface; ambiguous
@@ -20,7 +22,9 @@ or written to disk. The SQLite edge journal retains request IDs, action fingerpr
 timestamps and full acknowledgments for 24 hours (pruned on new commands). Minimal
 ID/fingerprint tombstones persist until the journal is removed, preventing older
 IDs from executing again with a newly issued deadline. No tokens, recordings or
-transcripts are stored. No conversations are retained by this milestone.
+transcripts are stored by the edge. Text conversations and bounded response
+receipts are memory-only on the backend, expire after 60 idle seconds by default,
+and are isolated by authenticated principal/device. No transcript persistence was added.
 The legacy voice path still records WAVs and logs transcripts; use its privacy
 behavior knowingly until the new voice pipeline replaces it.
 
@@ -28,7 +32,9 @@ Protect private configuration files, journal directories and backups. Use TLS
 outside loopback, restrict the homelab firewall and reverse proxy, keep access logs
 from recording credentials, and use one backend process. Credential rotation,
 revocation UI, browser sessions and comprehensive deployment security review remain
-later work. No cloud fallback or implicit cloud request is implemented.
+later work. There is no automatic provider fallback. Cloud inference requires
+explicit selection and opt-in; prompts/context/tool results then go to that
+provider. Ollama endpoints/models must actually use local inference when required.
 
 ## Manual hardware acceptance (all pending)
 
@@ -81,3 +87,32 @@ behavior. Record selected models, hardware, quality settings and network conditi
 Remote hosting still renders React/Three.js on the Pi. The existing large bundle
 and per-frame CPU geometry/SVG work require measurement and phase-6 optimization;
 no Pi performance or Intel Arc inference acceleration is claimed here.
+
+## Phase 3 agent trust boundary
+
+Optional scoped backend clients use distinct tokens and per-client device allowlists;
+they cannot use operator routes. Origin headers are rejected on agent routes.
+Callers sharing one token share a principal, so use separate credentials when
+session isolation is required. Guessed foreign session IDs return 404. Context is
+bounded, resettable and periodically expired. API summaries exclude raw arguments,
+raw results and private provider reasoning. Validation/provider/handler failures
+are redacted to stable codes; secret values are redacted in settings serialization.
+
+The model cannot grant itself permission or supply confirmation. Sensitive and
+confirmation-required tools are blocked; ordinary mutations require both backend
+and principal permission. Native mirror tools use the existing correlated gateway
+and edge journal. Timeout/cancellation can leave an external mutation indeterminate;
+connection closure is not rollback. There is no generic durable MCP action journal.
+
+MCP servers and their schema/content are untrusted. Only exact administrator
+allowlists, trusted descriptions and explicit permission metadata enter the tool
+registry; external schema references are forbidden. Sampling, roots, elicitation,
+resources, prompts and external log forwarding are not enabled. Stdio processes
+receive the SDK's restricted OS environment plus explicitly configured variables,
+not the whole backend environment. Stdio is not a hostile-code sandbox; approved
+executables and remote accounts must themselves have minimal privileges. Remote
+MCP requires TLS except isolated loopback tests and fixed, validated endpoints.
+Never allowlist arbitrary shell/filesystem/network or unrestricted HA services.
+
+See [PHASE3_AGENT.md](PHASE3_AGENT.md) for retention, retry tombstones and routing
+limitations. No hardware procedures above were executed during Phase 3.

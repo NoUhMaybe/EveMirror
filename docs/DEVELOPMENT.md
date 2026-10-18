@@ -27,7 +27,9 @@ and `npm.cmd`. No activation or execution-policy modification is needed.
 
 The `requirements/*.lock` files pin the tested foundation dependency versions.
 `common` contains protocol/config/transport; `edge` adds pyserial; `server` adds
-FastAPI/Uvicorn; `dev` adds test/lint/legacy-weather HTTP dependencies. Native
+FastAPI/Uvicorn, HTTP, official OpenAI/Anthropic/MCP SDKs and JSON Schema validation;
+`dev` adds test/lint/legacy-weather HTTP dependencies. Edge locks do not include
+provider or MCP SDKs. Native
 audio, Torch, transcription and Piper packages are deliberately outside these
 foundation environments. Linux/Pi wheels and deployment remain CI/hardware checks.
 The old unpinned `legacy/client/requirements.txt` and `legacy/agent/requirements.txt`
@@ -96,7 +98,8 @@ controller. Kiosk, wake capture and presence deployment are pending later phases
 
 ## Model artifacts
 
-The phase-2 runtime requires no model. Legacy voice operation still needs the
+The edge transport requires no model. The Phase 3 text agent needs an explicitly
+configured tool-capable model endpoint; weights are not bundled or downloaded. Legacy voice operation still needs the
 custom Hey Eve ONNX, openWakeWord melspectrogram/embedding models, and a Piper
 ONNX voice plus its matching JSON config. Obtain the custom model from a trusted
 training export/private backup; it is not reproducible from a fresh Git clone
@@ -139,5 +142,34 @@ from executing, and operators must not blindly issue a fresh ID after an uncerta
 
 For Zabbix, monitor `/health/live` locally and authenticated `/api/health` for edge
 online status, last heartbeat, serial metadata, error count and audio counters.
-Model/STT/TTS/HA are explicitly unconfigured; latency histograms, resource metrics,
-alarms and full readiness probes remain production-hardening work.
+Provider configuration is visible at `/api/agent/status`; it is not a live
+inference health probe. STT/TTS/HA remain unconfigured. Latency histograms, resource
+metrics, alarms and full readiness probes remain production-hardening work.
+
+## Phase 3 text development
+
+Use the same backend process. Set `EVE_SERVER_LLM_PROVIDER=ollama`, an explicit
+`EVE_SERVER_OLLAMA_MODEL` and optional `EVE_SERVER_OLLAMA_BASE_URL`. Without a model
+the transport still runs and the agent reports unconfigured. Cloud use requires
+explicit `EVE_SERVER_ALLOW_CLOUD=true` and the chosen provider's backend-only
+model/key. There is no automatic fallback or per-turn routing override. Do not
+put an operator, edge or provider token into the frontend.
+
+In a trusted terminal set `EVE_AGENT_TOKEN` to an optional scoped client credential
+(or use the operator token for development), then run `python scripts/chat.py
+--device mirror-1`. Commands are `/reset`, `/status`, `/quit`; Ctrl+C requests
+cancellation. Sessions expire after 60 idle seconds. `/reset` clears model context,
+retaining bounded retry receipts until expiry.
+
+`python -m pytest -q` now exercises all three actual adapters with mocked HTTP, a
+real isolated MCP stdio server, authenticated loopback MCP HTTP, the CLI and the
+gateway/simulated edge hardware path. It needs no installed model, cloud key or
+Home Assistant. `scripts/simulate.py` remains the independent Phase 2 transport
+check. Hosted CI additionally runs that simulation and `pip check`.
+
+[PHASE3_AGENT.md](PHASE3_AGENT.md) documents every setting and boundary, including
+MCP process/remote configuration, tool approval, timeouts, context/receipt limits,
+provider-specific capabilities and exactly what remains unverified live. MCP is
+disabled by default. Enable brightness only deliberately via
+`EVE_SERVER_AGENT__ALLOW_MUTATIONS=true`; live hardware acceptance remains a
+separately authorized deployment task.

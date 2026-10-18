@@ -14,8 +14,9 @@ flowchart LR
   Server --> Dashboard[React in Chromium on Pi]
 ```
 
-The arrows beyond the foundation gateway describe the target, not implemented
-capabilities. The implementation status is authoritative.
+Provider adapters, the tool registry/MCP client and temporary text sessions are
+implemented in Phase 3. Speech processing, timers/settings persistence and browser
+transport arrows still describe later work. The implementation status is authoritative.
 
 ## Incremental boundaries
 
@@ -23,8 +24,9 @@ capabilities. The implementation status is authoritative.
   durable command replay protection. Local hardware calls use the same service
   without depending on server connectivity or inference.
 - `apps/server`: authenticated gateway, connection/request correlation, bounded
-  audio assembler and snapshot service. No serial, sounddevice, Torch or model
-  dependency in the default backend installation.
+  audio assembler and snapshot service; provider-independent text orchestration,
+  approved tools/MCP and ephemeral sessions. No serial, sounddevice, Torch or model
+  weights are needed by the backend installation.
 - `packages/protocol`: strict Pydantic wire schemas; generated JSON Schema for
   future TypeScript generation. Protocol version changes require an explicit migration.
 - `apps/dashboard`: retained React application; move components in small tested steps.
@@ -54,7 +56,8 @@ Device credentials are scoped to one configured device. Operator credentials are
 separate; browser clients never receive them. TLS terminates at a trusted proxy
 for LAN deployment. The gateway binds loopback by default. Secrets are loaded
 from environment variables, excluded from logs and never included in snapshots.
-No cloud fallback is enabled by the foundation.
+Ollama is the default text provider. Cloud selection requires explicit opt-in;
+there is no provider fallback. Text and tool data never switch providers mid-turn.
 
 Hardware commands have deadlines and request IDs. A lost acknowledgment yields
 an indeterminate result, never an automatic replay. Edge replay state survives
@@ -71,3 +74,25 @@ Official implementation references:
 [FastAPI WebSockets](https://fastapi.tiangolo.com/advanced/websockets/),
 [websockets asyncio client](https://websockets.readthedocs.io/en/stable/reference/asyncio/client.html),
 [Pydantic models](https://docs.pydantic.dev/latest/concepts/models/).
+
+## Text agent boundaries (Phase 3)
+
+- `apps/server/providers/`: native Ollama HTTP and official OpenAI Responses /
+  Anthropic Messages SDK adapters. Private provider blocks remain internal and
+  expire with context. No adapter executes tools itself.
+- `apps/server/agent/`: normalized contracts, central prompt, bounded orchestration,
+  principal/device-bound temporary sessions, cancellation and authenticated API.
+- `apps/server/tools/`: schema registry, backend policy, executor, native time /
+  correlated mirror tools and official MCP sessions. No alternate hardware path.
+- `apps/server/auth.py`: shared credential comparison and optional scoped service /
+  terminal principals. Existing operator and edge privileges remain separate.
+
+The text API is non-streaming and independent of audio. Mutation permission is
+explicit, sensitive/confirmation-required actions are blocked, and tool failures
+are returned as tool data instead of promoted into instructions. Only allowlisted
+MCP tools are registered; connections may recover before a new turn but failed
+actions are not automatically retried. Context and response receipts are bounded
+and memory-only; native hardware idempotency remains durable at the edge.
+
+See [PHASE3_AGENT.md](PHASE3_AGENT.md) for supported APIs, configuration, identity,
+limits, MCP lifecycle and exact limitations.
