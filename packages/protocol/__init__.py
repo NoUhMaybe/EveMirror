@@ -93,7 +93,7 @@ class DeviceAck(Envelope):
 
 class HelloPayload(Model):
     capabilities: tuple[
-        Literal["brightness", "pcm_upload", "voice", "playback", "timer_sync"], ...
+        Literal["brightness", "pcm_upload", "voice", "playback", "timer_sync", "voice_control"], ...
     ] = ("brightness", "pcm_upload")
 
 
@@ -317,6 +317,27 @@ class EdgeVoiceState(Envelope):
     payload: EdgeVoicePayload
 
 
+class VoiceControlPayload(Model):
+    action: Literal["set_muted"] = "set_muted"
+    muted: bool
+
+
+class VoiceControl(Envelope):
+    type: Literal["voice.control"] = "voice.control"
+    payload: VoiceControlPayload
+
+
+class VoiceControlAckPayload(Model):
+    status: Literal["completed", "error"]
+    muted: bool
+    error: Annotated[str | None, Field(max_length=64)] = None
+
+
+class VoiceControlAck(Envelope):
+    type: Literal["voice.control_ack"] = "voice.control_ack"
+    payload: VoiceControlAckPayload
+
+
 class SyncedTimer(Model):
     timer_id: UUID
     alarm_id: UUID
@@ -373,6 +394,8 @@ Message = Annotated[
     | PlaybackStatus
     | VoiceStatus
     | EdgeVoiceState
+    | VoiceControl
+    | VoiceControlAck
     | TimerSync
     | TimerSyncReceipt
     | AlarmDismiss,

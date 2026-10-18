@@ -1,5 +1,11 @@
 # Phase 5 distributed voice
 
+Phase 6 now connects the dashboard through scoped browser sessions, existing
+voice/application state and real software playback positions. See
+[PHASE6_DASHBOARD.md](PHASE6_DASHBOARD.md) for pairing, additive mute acknowledgment,
+cancellation, visual tests and current legacy disposition. The legacy table below
+describes the Phase 5 milestone; the new frontend no longer uses the old relay.
+
 Phase 5 extends the existing edge socket, audio assembler, agent, registry and
 timers. The production path uses local openWakeWord/Silero, faster-whisper CPU
 INT8, Piper and PortAudio. Tests inject model/audio fixtures into these interfaces

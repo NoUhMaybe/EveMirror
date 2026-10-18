@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+umask 077
+: "${EVE_KIOSK_URL:?Set the reviewed HTTPS display origin}"
+case "$EVE_KIOSK_URL" in
+    https://*) ;;
+    *) printf '%s\n' 'The network kiosk requires HTTPS.' >&2; exit 1 ;;
+esac
+case "$EVE_KIOSK_URL" in
+    *'@'*|*'?'*|*'#'*) printf '%s\n' 'Use an origin without credentials or parameters.' >&2; exit 1 ;;
+esac
+eve_profile=${EVE_CHROMIUM_PROFILE:-"$HOME/.local/state/evemirror/chromium"}
+mkdir -p "$eve_profile"
+exec "${EVE_CHROMIUM_BIN:-chromium}" --kiosk --no-first-run \
+    --disable-session-crashed-bubble --user-data-dir="$eve_profile" "$EVE_KIOSK_URL"

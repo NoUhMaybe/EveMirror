@@ -1,7 +1,7 @@
 # EveMirror
 
 Local-first smart mirror modernization, developed on `codex/distributed-foundation`.
-The **phase 1–5 runtime** separates a lightweight Pi edge runtime from an
+The **phase 1–6 runtime** separates a lightweight Pi edge runtime from an
 authenticated FastAPI gateway and provider-independent text agent. The existing
 voice application remains available under `legacy/`.
 
@@ -45,9 +45,18 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-The React dashboard currently uses the legacy event server. The authenticated
-gateway's snapshots are available to operators and edges; browser session and
-dashboard integration are still pending. A successful build is not a Pi FPS test.
+The modular React dashboard pairs with Eve Server using its own scoped HttpOnly
+cookie. It reads authoritative state/events for voice, subtitles, weather, timers,
+alarms and approved home/media controls. It no longer connects to the legacy relay.
+Browser access defaults to disabled; use the [Phase 6 guide](docs/PHASE6_DASHBOARD.md)
+for TLS, exact origins/grants, administrator pairing, recovery and kiosk examples.
+Operator, provider and edge tokens stay outside JavaScript. A successful build and
+desktop browser tests do not establish Pi FPS or live hardware acceptance.
+
+For browser integration tests, set `EVE_TEST_PYTHON` to the absolute path of the
+development Python executable, then run `npx playwright install chromium` and
+`npm run test:browser` after building. The isolated loopback fixture runs real
+edge/server/tools with fake audio/models/services. No live device is contacted.
 
 ## Text agent
 

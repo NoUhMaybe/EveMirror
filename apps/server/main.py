@@ -23,6 +23,9 @@ from apps.server.agent.orchestrator import Orchestrator
 from apps.server.agent.sessions import SessionStore
 from apps.server.audio import AudioAssembler, AudioError, CompletedAudio
 from apps.server.auth import authenticated
+from apps.server.browser.api import BrowserSecurity, browser_router
+from apps.server.browser.service import BrowserService
+from apps.server.browser.static import mount_dashboard
 from apps.server.gateway import Gateway, GatewayError
 from apps.server.providers.base import LLMProvider
 from apps.server.providers.factory import create_provider
@@ -54,6 +57,7 @@ from packages.protocol import (
     Model,
     PlaybackStatus,
     TimerSyncReceipt,
+    VoiceControlAck,
     parse_message,
     utc_now,
 )
@@ -102,6 +106,7 @@ def create_app(
     mcp = MCPManager(settings.mcp_servers, registry)
     agent = Orchestrator(settings, provider, registry, sessions, mcp, services)
     voice = VoiceCoordinator(settings, gateway, agent, services, speech_stt, speech_tts)
+    browser = BrowserService(settings, services, gateway, voice, agent)
 
     async def expire_sessions():
         while True:
@@ -121,6 +126,7 @@ def create_app(
             if reaper:
                 reaper.cancel()
                 await asyncio.gather(reaper, return_exceptions=True)
+            await browser.close()
             await voice.close()
             await sessions.close()
             await services.close()
@@ -142,7 +148,7 @@ def create_app(
 
     app = FastAPI(
         title="Eve Server",
-        version="0.5.0",
+        version="0.6.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -152,15 +158,25 @@ def create_app(
     app.state.agent = agent
     app.state.services = services
     app.state.voice = voice
+    app.state.browser = browser
     app.include_router(agent_router(settings, agent, mcp, configuration_error))
     app.include_router(application_router(settings, services, voice))
+    app.include_router(browser_router(settings, browser))
     app.add_middleware(AgentBodyLimit)
+    app.add_middleware(BrowserSecurity, settings=settings.browser)
+    mount_dashboard(app, settings.browser)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request, error):
-        if request.url.path.startswith(("/api/agent", "/api/application")):
+        if request.url.path.startswith(
+            ("/api/agent", "/api/application", "/api/browser", "/api/operator/browser")
+        ):
             return JSONResponse({"detail": "invalid_request"}, status_code=422)
         return await request_validation_exception_handler(request, error)
+
+    @app.exception_handler(ServiceError)
+    async def unavailable_service(request, error):
+        return JSONResponse({"detail": error.code}, status_code=503)
 
     async def operator(authorization: str | None = Header(default=None)):
         if not authenticated(authorization, settings.operator_token.get_secret_value()):
@@ -350,6 +366,8 @@ def create_app(
                         gateway.acknowledge(connection, event)
                     elif isinstance(event, EdgeVoiceState):
                         await voice.edge_update(device_id, event)
+                    elif isinstance(event, VoiceControlAck):
+                        browser.acknowledge(connection, event)
                     elif isinstance(event, PlaybackStatus):
                         await voice.playback_update(connection, event)
                     elif isinstance(event, TimerSyncReceipt):

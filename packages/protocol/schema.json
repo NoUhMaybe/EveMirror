@@ -1017,7 +1017,8 @@
               "pcm_upload",
               "voice",
               "playback",
-              "timer_sync"
+              "timer_sync",
+              "voice_control"
             ],
             "type": "string"
           },
@@ -1780,6 +1781,174 @@
       "title": "TimerSyncReceiptPayload",
       "type": "object"
     },
+    "VoiceControl": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "voice.control",
+          "default": "voice.control",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/VoiceControlPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "VoiceControl",
+      "type": "object"
+    },
+    "VoiceControlAck": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "voice.control_ack",
+          "default": "voice.control_ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/VoiceControlAckPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "VoiceControlAck",
+      "type": "object"
+    },
+    "VoiceControlAckPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "completed",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "muted": {
+          "title": "Muted",
+          "type": "boolean"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "status",
+        "muted"
+      ],
+      "title": "VoiceControlAckPayload",
+      "type": "object"
+    },
+    "VoiceControlPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "set_muted",
+          "default": "set_muted",
+          "title": "Action",
+          "type": "string"
+        },
+        "muted": {
+          "title": "Muted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "muted"
+      ],
+      "title": "VoiceControlPayload",
+      "type": "object"
+    },
     "VoiceStatus": {
       "additionalProperties": false,
       "properties": {
@@ -2007,6 +2176,8 @@
       "state.snapshot": "#/$defs/StateSnapshot",
       "timer.sync": "#/$defs/TimerSync",
       "timer.sync_received": "#/$defs/TimerSyncReceipt",
+      "voice.control": "#/$defs/VoiceControl",
+      "voice.control_ack": "#/$defs/VoiceControlAck",
       "voice.edge_state": "#/$defs/EdgeVoiceState",
       "voice.status": "#/$defs/VoiceStatus"
     },
@@ -2066,6 +2237,12 @@
     },
     {
       "$ref": "#/$defs/EdgeVoiceState"
+    },
+    {
+      "$ref": "#/$defs/VoiceControl"
+    },
+    {
+      "$ref": "#/$defs/VoiceControlAck"
     },
     {
       "$ref": "#/$defs/TimerSync"

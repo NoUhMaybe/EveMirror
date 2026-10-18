@@ -1,0 +1,6 @@
+# Set EVE_PUBLIC_HOST to the reviewed DNS hostname, with working TLS/DNS.
+# Same-host backend example. Keep the backend port private.
+{$EVE_PUBLIC_HOST} {
+    reverse_proxy 127.0.0.1:8000
+    # Access logging is deliberately disabled: never log cookies or transcripts.
+}

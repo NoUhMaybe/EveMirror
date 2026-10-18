@@ -161,7 +161,15 @@ class VoiceCoordinator:
 
         async def state(phase, **data):
             payload = VoiceStatusPayload(state=phase, **self.services.redact(data))
-            self.observe(device, "assistant." + phase.lower(), payload.model_dump(mode="json"))
+            self.observe(
+                device,
+                "assistant." + phase.lower(),
+                {
+                    "session_id": str(audio.session_id),
+                    "request_id": str(audio.request_id),
+                    **payload.model_dump(mode="json"),
+                },
+            )
             await connection.send(
                 VoiceStatus(
                     device_id=device,
@@ -268,6 +276,8 @@ class VoiceCoordinator:
                 metrics={
                     "tts_ms": (self.clock() - synthesis_started) * 1000,
                     "duration_seconds": speech.duration,
+                    "sample_rate": float(speech.sample_rate),
+                    "sample_count": float(speech.sample_count),
                 },
             )
             playback_metrics = await self.delivery.play(connection, speech, audio.session_id)
@@ -324,7 +334,11 @@ class VoiceCoordinator:
         updated = self.services.redact(event.payload.model_dump(mode="json"))
         if updated != self.edge_state.get(device):
             self.edge_state[device] = updated
-            self.observe(device, "assistant.edge_state", updated)
+            self.observe(
+                device,
+                "assistant.edge_state",
+                {"session_id": str(event.session_id) if event.session_id else None, **updated},
+            )
         if event.payload.state == "LISTENING" and self.clock() < self.follow_until.get(device, 0):
             self.capture_until[device] = self.clock() + 30
             sid = self.sessions.get(device)
@@ -365,7 +379,15 @@ class VoiceCoordinator:
             accepted = True
         if accepted and event.payload.status == "started" and event.payload.alarm_id is None:
             payload = VoiceStatusPayload(state="SPEAKING")
-            self.observe(device, "assistant.speaking", payload.model_dump(mode="json"))
+            self.observe(
+                device,
+                "assistant.speaking",
+                {
+                    "session_id": str(event.session_id),
+                    "request_id": str(event.request_id),
+                    **payload.model_dump(mode="json"),
+                },
+            )
             await connection.send(
                 VoiceStatus(
                     device_id=device,

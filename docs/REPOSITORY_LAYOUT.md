@@ -60,5 +60,13 @@ of the data workspace. Training was not launched during cleanup.
 `.gitignore` excludes dependencies/builds, Python/Node/test caches, private env
 files/keys, runtime databases/audio, local training assets and OS/editor leftovers.
 Dependency locks, source configs, protocol schemas and `*.env.example` templates
-remain versioned. The backend Docker context excludes the frontend, legacy stack,
+remain versioned. The backend Docker context includes the frontend for its separate
+Node build stage and excludes dependency/build outputs, the legacy stack,
 firmware and training data. Python package discovery excludes the React app.
+
+Phase 6 browser authentication/projection lives in `apps/server/browser/`; generated
+browser JSON/TypeScript validation accompanies the existing application contracts.
+Dashboard transport, state, components, widgets, animations and style tokens have
+separate modules. `deploy/dashboard/` contains reviewed-deployment examples only.
+The caller-free Piper audition utility moved from `legacy/agent/` to `tools/audio/`;
+its ignored output is `data/voice_auditions/`. Legacy runtime dependencies stay intact.

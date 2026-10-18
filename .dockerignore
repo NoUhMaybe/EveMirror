@@ -18,4 +18,5 @@ training
 legacy
 firmware
 tools
-apps/dashboard
+**/test-results
+**/playwright-report

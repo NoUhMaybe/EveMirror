@@ -11,15 +11,15 @@ flowchart LR
   Server --> State[SQLite timers, alarms, operations and scoped semantic state]
   Server --> Speech[STT / Piper synthesis]
   Speech -->|audio| Edge
-  Server --> Dashboard[React in Chromium on Pi]
+  Dashboard[Paired React in Chromium on Pi] -->|same-origin cookie + CSRF / scoped polling| Server
 ```
 
 Provider adapters, the tool registry/MCP client and temporary text sessions were
 implemented in Phase 3. Phase 4 adds persistent timers/alarms, cached Open-Meteo,
 restricted native HA/media, optional SearXNG and scoped application snapshots/events.
 Phase 5 implements the configurable speech arrow with Pi wake/VAD, local server
-faster-whisper/Piper and bounded return playback. Only the browser transport arrow
-still describes later work. Integrations were tested using fixtures; actual model
+faster-whisper/Piper and bounded return playback. Phase 6 implements the paired
+browser boundary, semantic widgets and voice-driven display. Integrations were tested using fixtures; actual model
 inference and physical audio acceptance are pending.
 
 ## Incremental boundaries
@@ -42,7 +42,10 @@ inference and physical audio acceptance are pending.
   `packages/weather`: pure normalization shared with retained legacy weather.
 - `packages/audio`, `packages/assets`: validated PCM/metadata, local tones,
   cancellation ownership and shared trusted-manifest asset verification.
-- `apps/dashboard`: retained React application; move components in small tested steps.
+- `apps/server/browser`: persistent scoped sessions/pairing and adapters to existing
+  services/agent/voice state, plus optional static hosting. No second event ledger.
+- `apps/dashboard`: modular React store/transport/components/widgets, generated
+  contracts, responsive layout and shader/static orb. See [Phase 6](PHASE6_DASHBOARD.md).
 - `firmware/feather_m4`: retained firmware source and rollback baseline.
 - `legacy/agent`, `legacy/client`: working earlier voice pipeline, retained until replaced.
 - `training/wake_word`: training scripts and ignored local models/datasets.
@@ -131,8 +134,12 @@ limits, MCP lifecycle and exact limitations.
 See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for SQLite ownership/migrations,
 timer recovery, native HA/media allowlists, configured HTTP destinations, weather
 freshness and the separate authenticated application snapshot/event contract.
-The React dashboard retains its legacy relay until Phase 6; the semantic API does
-not introduce browser authentication or a public event stream.
+The original bearer-only semantic API remains private to trusted clients. Phase 6
+adds a separate browser session API over the same services and events, delegated
+to one explicit voice principal/device. It reads notifications before a transactional
+full snapshot and retains the page cursor, preventing a missed state mutation
+without adding a subscription race or new database. See [Phase 6](PHASE6_DASHBOARD.md)
+for the reconciliation rule, privacy scope and restart behavior.
 
 See [PHASE5_VOICE.md](PHASE5_VOICE.md) for speech ownership, trusted assets,
 half-duplex/follow-up behavior, cancellation limits and offline alarm reconciliation.

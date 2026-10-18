@@ -12,6 +12,7 @@ services:
     read_only: true
     environment:
       EVE_SERVER_DATABASE_PATH: /var/lib/eve/server.sqlite3
+      FORWARDED_ALLOW_IPS: ${EVE_TRUSTED_PROXY_IPS:-127.0.0.1}
     volumes:
       - eve-data:/var/lib/eve
       # After preparing/validating private models, enable this read-only mount:

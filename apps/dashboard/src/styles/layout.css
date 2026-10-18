@@ -1,0 +1,1112 @@
+.dashboard {
+  min-height: 100dvh;
+  height: 100dvh;
+  max-width: 1720px;
+  margin: auto;
+  padding: 30px clamp(24px, 4.5vw, 76px) 22px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 28px;
+  overflow: hidden;
+}
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wordmark {
+  font-size: 31px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--eve-accent-primary);
+  margin-top: 13px;
+}
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--eve-text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.connection i {
+  width: 5px;
+  height: 5px;
+  background: var(--eve-warning);
+  border-radius: 50%;
+}
+.connection[data-online="true"] i {
+  background: var(--eve-success);
+}
+.icon-button {
+  padding: 7px;
+  border: 0;
+}
+.icon-button svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: var(--eve-text-secondary);
+  stroke-width: 1.25;
+}
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 15px;
+}
+.clock time {
+  font-size: clamp(72px, 9vw, 136px);
+  font-weight: 200;
+  line-height: 1.15;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+.clock-caption {
+  font-size: 13px;
+  color: var(--eve-text-secondary);
+  letter-spacing: 0.02em;
+}
+.ambient {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  text-align: right;
+}
+.ambient .weather-icon {
+  width: 46px;
+  height: 46px;
+  color: var(--eve-accent-primary);
+}
+.ambient strong {
+  font-size: 45px;
+  font-weight: 300;
+  letter-spacing: -0.05em;
+  display: block;
+}
+.ambient span,
+.ambient small {
+  display: block;
+  font-size: 13px;
+  color: var(--eve-text-secondary);
+  line-height: 1.7;
+}
+.ambient.empty {
+  font-size: 12px;
+  color: var(--eve-text-secondary);
+}
+.stage {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: clamp(36px, 7vw, 100px);
+  align-items: center;
+}
+.assistant-space {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  justify-content: center;
+}
+.orb-container {
+  position: relative;
+  width: 100%;
+  height: clamp(210px, 30vh, 380px);
+  max-width: 480px;
+  flex-shrink: 0;
+}
+.orb-canvas,
+.orb-canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.assistant-label {
+  color: var(--eve-accent-primary);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  line-height: 1.7;
+  margin-top: 0;
+}
+.subtitles {
+  padding-top: 18px;
+  min-height: 102px;
+  max-height: 174px;
+  overflow: auto;
+  text-align: center;
+  max-width: 650px;
+  width: 100%;
+  scrollbar-width: thin;
+}
+.subtitles p {
+  font-size: clamp(18px, 1.7vw, 25px);
+  line-height: 1.65;
+  font-weight: 300;
+}
+.subtitles span {
+  color: var(--eve-text-secondary);
+  transition: color 0.25s;
+}
+.subtitles .spoken {
+  color: var(--eve-text-primary);
+}
+.subtitles .transcript {
+  color: var(--eve-text-secondary);
+  font-size: 19px;
+}
+.subtitles .subtitle-placeholder {
+  font-size: 14px;
+  color: var(--eve-text-secondary);
+}
+.context-space {
+  min-width: 0;
+  max-height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding: 6px 0;
+}
+.widget {
+  animation: arrive 0.5s ease both;
+  min-width: 0;
+}
+.widget-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.widget-heading h2 {
+  margin-top: 7px;
+}
+.source-badge,
+.count-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--eve-text-secondary);
+  white-space: nowrap;
+}
+.source-badge {
+  border: 1px solid var(--eve-line);
+  border-radius: 20px;
+  padding: 6px 10px;
+}
+.stale {
+  color: var(--eve-warning);
+}
+.forecast-day {
+  display: grid;
+  grid-template-columns: 65px 36px minmax(60px, 1fr) 55px 100px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--eve-line);
+}
+.forecast-day:last-child {
+  border: 0;
+}
+.day-name {
+  font-size: 16px;
+}
+.day-name small {
+  display: block;
+  color: var(--eve-text-secondary);
+  font-size: 10px;
+  line-height: 1.7;
+}
+.weather-icon {
+  width: 38px;
+  height: 38px;
+  color: var(--eve-accent-primary);
+}
+.day-condition {
+  font-size: 13px;
+  color: var(--eve-text-secondary);
+}
+.rain {
+  color: var(--eve-accent-primary);
+  font-size: 12px;
+  text-align: right;
+}
+.high-low {
+  font-size: 20px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.high-low em {
+  font-style: normal;
+  color: var(--eve-text-secondary);
+  margin-left: 12px;
+}
+.current-weather {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  padding: 14px 0 26px;
+}
+.current-weather .weather-icon {
+  width: 62px;
+  height: 62px;
+}
+.current-weather strong {
+  font-size: 70px;
+  font-weight: 200;
+  letter-spacing: -0.07em;
+}
+.current-weather strong small {
+  font-size: 21px;
+  font-weight: 300;
+  letter-spacing: 0;
+}
+.current-weather h3 {
+  font-size: 20px;
+}
+.current-weather p {
+  font-size: 13px;
+  color: var(--eve-text-secondary);
+  margin-top: 8px;
+}
+.current-weather p span {
+  margin-left: 12px;
+}
+.weather-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 20px 0 0;
+}
+.weather-facts dt {
+  font-size: 11px;
+  color: var(--eve-text-secondary);
+  margin-bottom: 9px;
+}
+.weather-facts dd {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+}
+.weather-facts dd small {
+  font-size: 12px;
+  color: var(--eve-text-secondary);
+}
+.hourly-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 160px;
+  overflow: visible;
+}
+.chart-grid {
+  stroke: var(--eve-line);
+  stroke-width: 0.7;
+  stroke-dasharray: 3 6;
+}
+.chart-line {
+  fill: none;
+  stroke: var(--eve-accent-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chart-now {
+  stroke: var(--eve-accent-secondary);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+.hour-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--eve-text-secondary);
+  font-size: 10px;
+}
+.hour-labels small {
+  display: block;
+  font-size: 9px;
+  color: var(--eve-text-secondary);
+  line-height: 1.8;
+}
+.timer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--eve-line);
+  padding: 16px 0;
+}
+.timer-copy h3 {
+  overflow-wrap: anywhere;
+}
+.timer-copy span {
+  font-size: 11px;
+  color: var(--eve-text-secondary);
+  line-height: 1.8;
+}
+.timer-value {
+  font-weight: 300;
+  font-size: 35px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+.timer-actions {
+  grid-column: 1/-1;
+  display: flex;
+  gap: 8px;
+}
+.timer-actions button {
+  font-size: 12px;
+  padding: 7px 12px;
+}
+.timers[data-alarm="true"] {
+  border-left: 2px solid var(--eve-warning);
+  padding-left: 20px;
+}
+.timers[data-alarm="true"] .eyebrow,
+.timers[data-alarm="true"] .timer-value {
+  color: var(--eve-warning);
+}
+.timers[data-alarm="true"] .widget-heading h2 {
+  animation: alarm-breathe 3s ease-in-out infinite;
+}
+.timer-form {
+  display: grid;
+  grid-template-columns: 1fr 80px auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.timer-form button {
+  font-size: 13px;
+  min-height: 40px;
+}
+.timer-form input {
+  width: 100%;
+  font-size: 13px;
+}
+.compact-timers {
+  border-top: 1px solid var(--eve-line);
+  margin-top: 26px;
+  padding-top: 20px;
+}
+.compact-timers .widget-heading {
+  margin-bottom: 8px;
+}
+.compact-timers h2 {
+  font-size: 20px;
+}
+.compact-timers .timer-actions {
+  grid-column: auto;
+  justify-content: end;
+}
+.compact-timers .timer-row {
+  grid-template-columns: 1fr auto auto;
+  padding: 10px 0;
+}
+.compact-timers .timer-value {
+  font-size: 25px;
+}
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--eve-text-secondary);
+}
+.pagination button {
+  font-size: 11px;
+}
+.empty-copy {
+  color: var(--eve-text-secondary);
+  font-size: 16px;
+  line-height: 1.8;
+}
+.entity {
+  padding: 20px 0;
+  border-top: 1px solid var(--eve-line);
+}
+.entity-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.entity h3 {
+  font-size: 22px;
+}
+.entity-heading p {
+  color: var(--eve-text-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.entity-state {
+  font-size: 11px;
+  color: var(--eve-accent-primary);
+  white-space: nowrap;
+}
+.entity-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  align-items: center;
+}
+.entity-controls button {
+  font-size: 12px;
+}
+.entity-controls label {
+  min-width: 115px;
+  flex: 1;
+  font-size: 11px;
+}
+.entity-controls select {
+  font-size: 12px;
+}
+.entity .provenance {
+  margin-top: 12px;
+}
+.ambient-prompt {
+  text-align: center;
+  color: var(--eve-text-secondary);
+  font-size: 20px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+.ambient-prompt span {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin-top: 16px;
+}
+.footer {
+  border-top: 1px solid var(--eve-line);
+  padding-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+.footer nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.footer nav button {
+  border: 0;
+  color: var(--eve-text-secondary);
+  font-size: 11px;
+  padding: 7px 12px;
+}
+.footer nav button[aria-current="page"] {
+  color: var(--eve-accent-primary);
+  background: var(--eve-subtle);
+}
+.voice-controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.voice-controls button {
+  font-size: 11px;
+  padding: 7px 12px;
+}
+.notice {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(600px, 90vw);
+  background: #0b1014;
+  border: 1px solid var(--eve-line);
+  padding: 18px 24px;
+  border-radius: 7px;
+  font-size: 14px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  z-index: 5;
+}
+.settings-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+}
+.settings {
+  width: min(520px, 100vw);
+  height: 100%;
+  overflow: auto;
+  background: #06090b;
+  border-left: 1px solid var(--eve-line);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings h2 {
+  font-size: 32px;
+}
+.settings .check {
+  flex-direction: row;
+  align-items: center;
+}
+.diagnostics {
+  margin: 0;
+  display: grid;
+  gap: 17px;
+}
+.diagnostics div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+}
+.diagnostics dt {
+  color: var(--eve-text-secondary);
+  font-size: 12px;
+}
+.diagnostics dd {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.event-list {
+  padding-left: 15px;
+  list-style: none;
+}
+.event-list li {
+  font-size: 10px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  line-height: 2;
+}
+.event-list strong {
+  font-weight: 400;
+}
+.logout {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.pairing-screen {
+  grid-row: 3/-1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+}
+.pairing-screen .orb-container {
+  height: min(28vh, 330px);
+}
+.pairing-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 550px;
+  padding-bottom: 20px;
+}
+.pairing-copy > p:not(.eyebrow) {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--eve-text-secondary);
+}
+.pair-code {
+  font-size: 32px;
+  letter-spacing: 0.2em;
+  color: var(--eve-accent-primary);
+  font-variant-numeric: tabular-nums;
+}
+.static-orb {
+  position: absolute;
+  inset: 14% 20%;
+  border: 1px solid rgba(143, 221, 240, 0.3);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(
+    ellipse at 35% 35%,
+    rgba(143, 221, 240, 0.06),
+    transparent 65%
+  );
+}
+.static-orb div {
+  position: absolute;
+  border: 1px solid rgba(143, 221, 240, 0.14);
+  border-radius: 50%;
+  width: 100%;
+  height: 55%;
+  transform: rotate(-25deg);
+}
+.static-orb div:nth-child(2) {
+  transform: rotate(35deg);
+  height: 95%;
+  width: 50%;
+}
+.static-orb div:nth-child(3) {
+  transform: rotate(65deg);
+  height: 95%;
+  width: 55%;
+}
+.static-orb i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--eve-accent-primary);
+  box-shadow: 0 0 30px 8px rgba(143, 221, 240, 0.12);
+}
+.static-orb[data-phase="ALARM"] {
+  border-color: var(--eve-warning);
+}
+.empty-state p:not(.eyebrow) {
+  margin: 20px 0;
+  color: var(--eve-text-secondary);
+}
+.loading {
+  color: var(--eve-text-secondary);
+  font-size: 14px;
+}
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes alarm-breathe {
+  50% {
+    opacity: 0.6;
+  }
+}
+@media (orientation: portrait), (max-width: 1000px) {
+  .dashboard {
+    padding: 34px 7vw 24px;
+    gap: 28px;
+  }
+  .stage {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(200px, 0.85fr) minmax(0, 1.15fr);
+    gap: 18px;
+    align-items: stretch;
+  }
+  .assistant-space {
+    justify-content: center;
+  }
+  .orb-container {
+    height: clamp(210px, 22vh, 360px);
+    max-width: 540px;
+  }
+  .subtitles {
+    min-height: 75px;
+    max-height: 110px;
+    padding-top: 12px;
+  }
+  .context-space {
+    align-self: center;
+    width: 100%;
+    max-width: 760px;
+    margin: auto;
+  }
+  .dashboard[data-contextual="false"] .stage {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .dashboard[data-contextual="false"] .orb-container {
+    height: 34vh;
+    max-width: 660px;
+  }
+  .dashboard[data-contextual="false"] .context-space {
+    padding-bottom: 5vh;
+  }
+  .clock time {
+    font-size: clamp(90px, 14vw, 152px);
+  }
+  .forecast-day {
+    padding: 15px 0;
+    grid-template-columns: 75px 38px minmax(60px, 1fr) 65px 110px;
+    gap: 16px;
+  }
+  .day-name {
+    font-size: 19px;
+  }
+  .day-condition {
+    font-size: 15px;
+  }
+  .high-low {
+    font-size: 25px;
+  }
+  .rain {
+    font-size: 14px;
+  }
+  .footer {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .footer nav {
+    justify-content: center;
+    gap: 8px;
+  }
+  .footer nav button {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+  .voice-controls {
+    align-self: center;
+  }
+  .widget-heading {
+    margin-bottom: 20px;
+  }
+  .compact-timers {
+    margin-top: 22px;
+  }
+  .ambient-prompt {
+    font-size: 24px;
+  }
+  .current-weather strong {
+    font-size: 80px;
+  }
+  .current-weather {
+    padding-top: 15px;
+    padding-bottom: 35px;
+  }
+  .hourly-chart svg {
+    max-height: 190px;
+  }
+}
+@media (orientation: portrait) and (max-height: 1400px) {
+  .dashboard {
+    padding: 22px 6vw 18px;
+    gap: 17px;
+  }
+  .day-header {
+    padding-top: 4px;
+  }
+  .clock time {
+    font-size: 100px;
+  }
+  .clock-caption {
+    font-size: 11px;
+  }
+  .stage {
+    grid-template-rows: minmax(190px, 0.78fr) minmax(0, 1.22fr);
+    gap: 6px;
+  }
+  .orb-container {
+    height: 190px;
+  }
+  .subtitles {
+    min-height: 54px;
+    max-height: 80px;
+    padding-top: 9px;
+  }
+  .subtitles p {
+    font-size: 17px;
+  }
+  .assistant-label {
+    font-size: 10px;
+  }
+  .forecast-day {
+    padding: 8px 0;
+    grid-template-columns: 55px 30px minmax(50px, 1fr) 45px 80px;
+    gap: 10px;
+  }
+  .day-name {
+    font-size: 15px;
+  }
+  .day-name small {
+    font-size: 9px;
+  }
+  .day-condition,
+  .rain {
+    font-size: 11px;
+  }
+  .high-low {
+    font-size: 19px;
+  }
+  .high-low em {
+    margin-left: 6px;
+  }
+  .weather-icon {
+    width: 30px;
+    height: 30px;
+  }
+  .widget-heading {
+    margin-bottom: 12px;
+  }
+  .widget-heading h2 {
+    font-size: 25px;
+  }
+  .eyebrow {
+    font-size: 9px;
+  }
+  .provenance {
+    margin-top: 12px;
+    font-size: 10px;
+  }
+  .compact-timers {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .compact-timers .widget-heading {
+    margin-bottom: 0;
+  }
+  .compact-timers h2 {
+    font-size: 17px;
+  }
+  .compact-timers .timer-value {
+    font-size: 22px;
+  }
+  .timer-copy h3 {
+    font-size: 17px;
+  }
+  .timer-copy span {
+    font-size: 10px;
+  }
+  .timer-actions button {
+    padding: 6px 9px;
+    font-size: 10px;
+  }
+  .footer {
+    padding-top: 12px;
+    gap: 10px;
+  }
+  .footer nav {
+    gap: 2px;
+  }
+  .footer nav button {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .voice-controls button {
+    font-size: 10px;
+  }
+  .weather-facts dd {
+    font-size: 19px;
+  }
+  .current-weather strong {
+    font-size: 60px;
+  }
+  .current-weather {
+    padding: 4px 0 15px;
+  }
+  .current-weather .weather-icon {
+    width: 46px;
+    height: 46px;
+  }
+  .weather-facts {
+    margin-top: 14px;
+  }
+  .hour-labels {
+    font-size: 9px;
+  }
+  .hour-labels small {
+    font-size: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .dashboard {
+    padding: 20px;
+    gap: 18px;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .day-header {
+    gap: 20px;
+  }
+  .clock time {
+    font-size: 75px;
+  }
+  .ambient {
+    gap: 10px;
+  }
+  .ambient strong {
+    font-size: 33px;
+  }
+  .ambient .weather-icon {
+    display: none;
+  }
+  .ambient span,
+  .ambient small {
+    font-size: 10px;
+  }
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+  .context-space {
+    max-height: none;
+    overflow: visible;
+  }
+  .forecast-day {
+    grid-template-columns: 45px 28px 1fr 40px 68px;
+    gap: 6px;
+  }
+  .day-condition {
+    font-size: 10px;
+  }
+  .high-low {
+    font-size: 16px;
+  }
+  .subtitles {
+    max-height: 160px;
+  }
+  .timer-form {
+    grid-template-columns: 1fr 65px;
+  }
+  .timer-form button {
+    grid-column: 1/-1;
+  }
+  .compact-timers .timer-row {
+    grid-template-columns: 1fr auto;
+  }
+  .compact-timers .timer-actions {
+    grid-column: 1/-1;
+    justify-content: start;
+  }
+  .source-badge {
+    font-size: 9px;
+    padding: 5px 7px;
+  }
+  .current-weather {
+    gap: 14px;
+  }
+  .current-weather strong {
+    font-size: 58px;
+  }
+  .current-weather h3 {
+    font-size: 17px;
+  }
+  .settings {
+    padding: 24px;
+  }
+  .footer {
+    margin-top: 20px;
+  }
+  .connection {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.dashboard[data-reduced="true"] * {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (min-width: 1101px) and (orientation: landscape) {
+  .context-space:has(.weather):has(.compact-timers) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 175px;
+    gap: 26px;
+    align-items: start;
+  }
+  .context-space:has(.weather) .compact-timers {
+    margin: 0;
+    padding: 12px 0 0 20px;
+    border-top: 0;
+    border-left: 1px solid var(--eve-line);
+  }
+  .context-space:has(.weather) .compact-timers .timer-row {
+    grid-template-columns: 1fr auto;
+  }
+  .context-space:has(.weather) .compact-timers .timer-actions {
+    grid-column: 1/-1;
+    justify-content: start;
+    flex-wrap: wrap;
+  }
+  .context-space:has(.weather) .forecast-day {
+    grid-template-columns: 42px 28px minmax(50px, 1fr) 32px 75px;
+    gap: 7px;
+    padding: 9px 0;
+  }
+  .context-space:has(.weather) .day-condition {
+    font-size: 11px;
+  }
+  .context-space:has(.weather) .high-low {
+    font-size: 19px;
+  }
+  .context-space:has(.weather) .high-low em {
+    margin-left: 6px;
+  }
+  .context-space:has(.weather) .weather-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+@media (orientation: portrait) and (max-height: 1400px) {
+  .stage {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .day-condition {
+    font-size: 13px;
+  }
+  .rain {
+    font-size: 12px;
+  }
+}
+@media (orientation: portrait) and (min-width: 601px) {
+  .stage {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+@media (min-width: 1101px) and (orientation: landscape) {
+  .context-space:has(.weather) .widget-heading {
+    margin-bottom: 12px;
+  }
+  .context-space:has(.weather) .widget-heading h2 {
+    font-size: 27px;
+  }
+  .context-space:has(.weather) .forecast-day {
+    padding: 5px 0;
+  }
+  .context-space:has(.weather) .provenance {
+    margin-top: 14px;
+    font-size: 11px;
+  }
+}
+.dashboard[data-layout="compact"] .orb-container {
+  height: clamp(160px, 17vh, 280px);
+}
+.dashboard[data-layout="focus"] .orb-container {
+  height: clamp(160px, 18vh, 290px);
+}
+.dashboard[data-layout="focus"] .context-space {
+  align-self: start;
+}

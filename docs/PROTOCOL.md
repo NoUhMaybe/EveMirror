@@ -3,7 +3,29 @@
 Python definitions: `packages/protocol/__init__.py`; portable discriminated JSON
 Schema: `packages/protocol/schema.json`. Regenerate with
 `python scripts/export_protocol.py`. The schema consistency test prevents drift.
-TypeScript generation/browser integration follows in the dashboard phase.
+Browser TypeScript and CSP-safe validation are generated from the additive browser
+projection; see [Phase 6](PHASE6_DASHBOARD.md). Existing wire contracts stay version 1.
+
+Phase 6 adds `voice.control` (`action: set_muted`, strict boolean `muted`) and
+`voice.control_ack` (`status: completed|error`, actual `muted`, bounded optional
+error). They use the existing authenticated edge connection and request UUID;
+only an acknowledgment from that live connection/request completes browser mute.
+There is no browser bearer or browser-to-Feather path. Mute is sent only when the
+edge advertises `voice_control`; old edges stay connected without this action.
+Upgrade the backend before a new edge because old strict servers reject unknown
+capabilities. Existing session cancellation is
+reused for Stop Eve, including follow-up; alarm acknowledgment remains separate.
+
+The separate generated `packages/application/browser.schema.json` wraps the
+unchanged application and voice snapshots in `BrowserFrame` v1. Cookie-authenticated
+`GET /api/browser/state?after=N&voice_after=V&epoch=UUID` returns full scope-filtered
+state and bounded existing durable/volatile events. New/invalid/expired cursors or
+new process epochs request a reset. Notifications precede a transactional full
+snapshot; retain the notification cursor so a concurrent mutation cannot be lost.
+No notification patches a newer projection. Browser POSTs require exact Origin and
+CSRF, and finite actions are checked against existing tool schemas/permissions.
+See the [browser protocol and pairing guide](PHASE6_DASHBOARD.md) for all routes,
+credential boundaries, recovery, deduplication and generated TypeScript checks.
 
 Each envelope contains `version: 1`, `type`, `device_id`, `request_id` (UUID),
 `timestamp` (timezone-aware), optional `session_id`, and a typed `payload`.

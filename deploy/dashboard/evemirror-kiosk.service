@@ -1,0 +1,18 @@
+[Unit]
+Description=Eve paired Chromium display
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/eve/kiosk.env
+ExecStart=%h/.local/bin/eve-kiosk
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,5 +1,27 @@
 # Security boundaries and hardware verification
 
+Phase 6 introduces a dedicated browser boundary described in
+[PHASE6_DASHBOARD.md](PHASE6_DASHBOARD.md). Browser access defaults off; reviewed
+HTTPS origins and explicit per-mirror grants are required. Short-lived pairing
+approval needs the separate operator credential in a trusted terminal. Persistent
+256-bit opaque credentials live in Secure/HttpOnly/SameSite=Strict host cookies,
+with only hashes in SQLite, rotating renewal, expiration and revocation. Exact
+Host/Origin/scheme, Fetch Metadata and CSRF protect browser APIs. No wildcard CORS,
+privileged JS token, cookie query parameter, raw tool dispatch or provider setting
+is added. Browser scope delegates one voice principal; captions and home controls
+are separately opt-in. Physical kiosk profile theft still exposes that delegated
+session: protect its user/profile and revoke it after loss. Rate-limit pairing at
+the reviewed proxy if required; bounded local capacity is not distributed abuse
+protection. Static CSP rejects runtime eval and third-party connections.
+
+Trust proxy headers only from the actual reverse proxy, keep the backend port
+private and retain TLS certificate verification. Browser mute requires the current
+edge's persisted-state acknowledgment; Stop requests correlated session cancellation
+and does not dismiss alarms. Neither constitutes hardware mic isolation or proof
+of physical audio. Rendering uses capped shader/static presets but no Pi benchmark
+or native mirror resolution has been verified. Kiosk examples do not change
+Wayland/HDMI, boot configuration, rotation, display sleep/wake or hardware ownership.
+
 ## Implemented boundaries
 
 Operator and per-device credentials are distinct, required, redacted in settings,

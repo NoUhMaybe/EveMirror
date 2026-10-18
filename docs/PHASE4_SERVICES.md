@@ -1,5 +1,9 @@
 # Phase 4 backend services
 
+The Phase 6 [paired dashboard](PHASE6_DASHBOARD.md) now consumes these same services,
+receipts, timers and semantic events through a separate scoped cookie boundary.
+The trusted bearer APIs documented here retain their existing authorization rules.
+
 Phase 4 extends the existing FastAPI application, tool registry, provider adapters
 and scoped text API. Production implementations perform SQLite, Open-Meteo,
 restricted Home Assistant REST and optional SearXNG requests. Automated tests inject

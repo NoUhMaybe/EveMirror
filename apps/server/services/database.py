@@ -57,6 +57,17 @@ CREATE TABLE alarm_delivery (
  status TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 """,
+    """
+CREATE TABLE browser_pairings (
+ token_hash TEXT PRIMARY KEY, code_hash TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+ expires_ms INTEGER NOT NULL, device_id TEXT
+);
+CREATE TABLE browser_sessions (
+ id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, device_id TEXT NOT NULL,
+ name TEXT NOT NULL, created_ms INTEGER NOT NULL, expires_ms INTEGER NOT NULL,
+ policy_hash TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0
+);
+""",
 ]
 
 
@@ -133,6 +144,10 @@ class Database:
                     "SELECT owner,device_id,view,layout FROM views LIMIT 0",
                     "SELECT owner,device_id,kind,id,payload FROM resources LIMIT 0",
                     "SELECT alarm_id,device_id,status,updated_at FROM alarm_delivery LIMIT 0",
+                    "SELECT token_hash,code_hash,name,expires_ms,device_id "
+                    "FROM browser_pairings LIMIT 0",
+                    "SELECT id,token_hash,device_id,name,created_ms,expires_ms,policy_hash,revoked "
+                    "FROM browser_sessions LIMIT 0",
                 ):
                     connection.execute(query)
                 self.connection, self.error = connection, None

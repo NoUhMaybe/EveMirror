@@ -2,9 +2,9 @@
 Quickly audition Piper speaker IDs and save/play test clips.
 
 Usage:
-    python audition_tts_voices.py
-    python audition_tts_voices.py --speakers 12,24,36,48 --play
-    python audition_tts_voices.py --start 0 --count 12 --step 8 --text "Hey, I'm Eve."
+    python tools/audio/audition_tts_voices.py
+    python tools/audio/audition_tts_voices.py --speakers 12,24,36,48 --play
+    python tools/audio/audition_tts_voices.py --start 0 --count 12 --step 8 --text "Hey, I'm Eve."
 """
 
 import argparse
@@ -19,7 +19,7 @@ from piper import PiperVoice, SynthesisConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL = REPO_ROOT / "training" / "wake_word" / "models" / "en_US-libritts_r-medium.onnx"
-DEFAULT_OUT_DIR = REPO_ROOT / "legacy" / "agent" / "voice_auditions"
+DEFAULT_OUT_DIR = REPO_ROOT / "data" / "voice_auditions"
 DEFAULT_TEXT = "Hi, I'm Eve. Nice to meet you. How can I help you today?"
 
 

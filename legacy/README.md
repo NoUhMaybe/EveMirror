@@ -8,7 +8,8 @@ and the loopback dashboard event relay. It is separate from `apps/edge` and
 Phase 5 now implements the replacement distributed voice path; see its
 [setup and acceptance guide](../docs/PHASE5_VOICE.md). This directory remains for
 rollback and physical voice acceptance. Its dashboard relay/event/weather modules
-still serve the current React application until Phase 6. Do not delete the legacy
+remain dependencies of this old supervisor/agent; the Phase 6 React application
+uses the authenticated server instead. Do not delete the legacy
 entry points or utilities solely because the new pipeline exists.
 
 Run commands from the repository root using the existing voice `.venv` or an
@@ -28,8 +29,11 @@ ignored `legacy/client/recordings/` directory. Wake and voice models now reside
 under ignored `training/wake_word/my_custom_model/` and `training/wake_word/models/`.
 Existing local assets were moved with their directories.
 
-For the browser, run `npm.cmd run dev` from `apps/dashboard/`. The old relay binds
-loopback; remote browser/gateway migration is still pending. For manual serial
+For old dashboard rollback, restore the React build from `8299989` together with
+this old stack. Current React uses the [Phase 6 paired API](../docs/PHASE6_DASHBOARD.md).
+The old relay binds loopback. Piper speaker audition is a standalone utility at
+`tools/audio/audition_tts_voices.py` and writes ignored `data/voice_auditions/`.
+For manual serial
 diagnostics use `python tools/hardware/feather_backlight.py --help`.
 
 Only one runtime may own the Feather port. Stop legacy controllers before starting

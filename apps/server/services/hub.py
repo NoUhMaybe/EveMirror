@@ -64,7 +64,7 @@ class Services:
             "audible_alarms": False,
         }
 
-    def _present(self, connection, context, device_id, view=None, layout=None):
+    def _present(self, connection, context, device_id, view=None, layout=None, transient_seconds=0):
         self.timers._expire(connection, millis(self.clock()))
         row = connection.execute(
             "SELECT view,layout FROM views WHERE owner=? AND device_id=?",
@@ -90,6 +90,20 @@ class Services:
             ),
             (context.principal.id, device_id, selected, arranged),
         )
+        if view:
+            connection.execute(
+                "DELETE FROM resources WHERE owner=? AND device_id=? AND kind='view-expiry'",
+                (context.principal.id, device_id),
+            )
+        if transient_seconds:
+            connection.execute(
+                "INSERT OR REPLACE INTO resources VALUES (?,?,'view-expiry','selected',?)",
+                (
+                    context.principal.id,
+                    device_id,
+                    json.dumps({"expires_ms": millis(self.clock()) + transient_seconds * 1000}),
+                ),
+            )
         result = {
             "view": selected,
             "layout": arranged,
@@ -180,7 +194,14 @@ class Services:
             if type:
                 self.events.append(connection, owner, device or None, type, {"updated": True})
             if view and device and self.explicit_views.get((owner, device)) != context.turn_id:
-                self._present(connection, context, device, view)
+                transient = call.name.startswith(("home.", "media.")) and call.name not in {
+                    "home.get_state",
+                    "home.list_entities",
+                    "media.get_state",
+                }
+                self._present(
+                    connection, context, device, view, transient_seconds=12 if transient else 0
+                )
 
         try:
             await self.db.run(publish)
@@ -217,13 +238,25 @@ class Services:
                 ).fetchall()
                 if row["device_id"] in principal.device_ids
             ]
-            views = [
-                {"device_id": row["device_id"], "view": row["view"], "layout": row["layout"]}
-                for row in connection.execute(
-                    "SELECT * FROM views WHERE owner=?", (principal.id,)
-                ).fetchall()
-                if row["device_id"] in principal.device_ids
-            ]
+            views = []
+            for row in connection.execute(
+                "SELECT * FROM views WHERE owner=?", (principal.id,)
+            ).fetchall():
+                if row["device_id"] not in principal.device_ids:
+                    continue
+                expiry = connection.execute(
+                    "SELECT payload FROM resources WHERE owner=? AND device_id=? "
+                    "AND kind='view-expiry' AND id='selected'",
+                    (principal.id, row["device_id"]),
+                ).fetchone()
+                expired = expiry and json.loads(expiry["payload"])["expires_ms"] <= now
+                views.append(
+                    {
+                        "device_id": row["device_id"],
+                        "view": "default" if expired else row["view"],
+                        "layout": row["layout"],
+                    }
+                )
             weather, devices, tools = [], [], []
             for row in connection.execute(
                 "SELECT * FROM resources WHERE owner=?", (principal.id,)

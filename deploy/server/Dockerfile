@@ -1,13 +1,24 @@
+FROM node:24-bookworm-slim AS dashboard
+WORKDIR /build/apps/dashboard
+COPY apps/dashboard/package*.json ./
+RUN npm ci
+COPY packages/application/ /build/packages/application/
+COPY apps/dashboard/ ./
+RUN npm run contracts:check && npm run typecheck && npm run build
+
 FROM python:3.12-slim
 ARG EVE_INSTALL_SPEECH=0
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 EVE_SERVER_BROWSER__STATIC_ROOT=/app/dashboard
 WORKDIR /app
 COPY requirements/ requirements/
 RUN pip install --no-cache-dir -r requirements/server.lock
 RUN if [ "$EVE_INSTALL_SPEECH" = "1" ]; then pip install --no-cache-dir -r requirements/voice-server.lock; fi
 COPY pyproject.toml ./
-COPY apps/ apps/
+COPY apps/__init__.py apps/config.py apps/
+COPY apps/edge/ apps/edge/
+COPY apps/server/ apps/server/
 COPY packages/ packages/
+COPY --from=dashboard /build/apps/dashboard/dist/ dashboard/
 RUN pip install --no-cache-dir --no-deps . && useradd --uid 10001 --create-home eve \
     && mkdir -p /var/lib/eve && chown 10001:10001 /var/lib/eve
 USER 10001:10001

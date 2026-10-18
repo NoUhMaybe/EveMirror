@@ -1,0 +1,142 @@
+:root {
+  color-scheme: dark;
+  --eve-background: #000;
+  --eve-text-primary: #f2f8fb;
+  --eve-text-secondary: #9aadb7;
+  --eve-accent-primary: #8fddf0;
+  --eve-accent-secondary: #8d91d9;
+  --eve-success: #95dcc9;
+  --eve-warning: #e8bf80;
+  --eve-error: #e7a0a0;
+  --eve-line: rgba(162, 199, 214, 0.15);
+  --eve-subtle: rgba(143, 221, 240, 0.045);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background: var(--eve-background);
+  color: var(--eve-text-primary);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  color: var(--eve-text-primary);
+  background: transparent;
+  border: 1px solid var(--eve-line);
+  border-radius: 6px;
+  padding: 0.65em 1.05em;
+  cursor: pointer;
+  font-size: 14px;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+button:hover:not(:disabled) {
+  border-color: var(--eve-accent-primary);
+  background: var(--eve-subtle);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--eve-accent-primary);
+  outline-offset: 5px;
+}
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+.accent {
+  color: var(--eve-accent-primary);
+  border-color: rgba(143, 221, 240, 0.45);
+}
+.quiet {
+  border-color: transparent;
+  color: var(--eve-text-secondary);
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  font-weight: 400;
+  letter-spacing: -0.025em;
+}
+h1 {
+  font-size: clamp(32px, 3vw, 50px);
+}
+h2 {
+  font-size: clamp(25px, 2.4vw, 36px);
+}
+h3 {
+  font-size: 20px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--eve-text-secondary);
+  line-height: 1.6;
+}
+.provenance,
+.settings-note {
+  color: var(--eve-text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.provenance {
+  margin-top: 22px;
+}
+.error-copy {
+  color: var(--eve-error);
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  color: var(--eve-text-secondary);
+  font-size: 13px;
+}
+input,
+select {
+  color: var(--eve-text-primary);
+  border: 1px solid var(--eve-line);
+  background: #090e11;
+  border-radius: 5px;
+  padding: 10px;
+  min-width: 0;
+}
+input[type="range"] {
+  accent-color: var(--eve-accent-primary);
+  padding: 0;
+}
+input[type="checkbox"] {
+  accent-color: var(--eve-accent-primary);
+}

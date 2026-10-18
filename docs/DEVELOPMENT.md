@@ -217,8 +217,8 @@ advertised as working tools. Keep credentials in private backend configuration.
 
 `GET /api/application/state` and `/api/application/events?after=0&limit=100` accept
 the existing operator or scoped agent Bearer credentials and reject browser
-Origins/device credentials. These are preparation for a future authenticated
-dashboard transport. Polling events uses durable revisions; reconnect from a
+Origins/device credentials. These remain trusted-service APIs alongside the new
+paired browser API. Polling events uses durable revisions; reconnect from a
 snapshot if the server reports `snapshot_required`.
 
 Regenerate both contracts with `python scripts/export_protocol.py` and
@@ -245,3 +245,26 @@ a reviewed read-only asset mount; no model is included in the image. Edge softwa
 mute suppresses capture processing, not the operating system microphone device.
 Programmatic voice stop and network loss preserve active alarms; explicit dismissal
 is separate. Half-duplex suppression has no acoustic echo cancellation/barge-in.
+
+## Phase 6 dashboard development
+
+Use [PHASE6_DASHBOARD.md](PHASE6_DASHBOARD.md) for the paired cookie API, exact
+loopback/TLS origins, grants, trusted administrator CLI, production static host,
+Vite same-origin proxy, Chromium fixture and kiosk/recovery instructions. No
+privileged credential belongs in a frontend environment variable. Browser captions
+are an explicit delegation of the assigned mirror's voice principal.
+
+After Python schema edits run both exporters, then `npm run contracts` from
+`apps/dashboard`. Run `npm run contracts:check`, `npm run format:check`, `npm test`,
+`npm run typecheck` and `npm run build`. Set `EVE_TEST_PYTHON` to your absolute dev
+Python, install Chromium with `npx playwright install chromium`, then run
+`npm run test:browser`. On Linux CI installation also uses `--with-deps`. The
+opt-in loopback fixture binds 8766, requires a production build and uses temporary
+data with simulated audio/models/services only. It must not run next to the old
+relay on that port. Screenshots/traces in `test-results/` are ignored fixture
+artifacts; inspect them when changing layout. No pixel-perfect golden baseline is
+claimed. Keep test controls out of packaged production apps.
+
+The server Dockerfile builds static assets in a Node stage. Browser enablement and
+grants remain explicit. Examples do not enable a Pi unit, edit compositor/HDMI
+rotation, contact live services or establish real GPU/audio performance.

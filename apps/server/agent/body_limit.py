@@ -10,7 +10,9 @@ class AgentBodyLimit:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or not scope.get("path", "").startswith("/api/agent"):
+        if scope["type"] != "http" or not scope.get("path", "").startswith(
+            ("/api/agent", "/api/browser", "/api/operator/browser")
+        ):
             return await self.app(scope, receive, send)
         body = bytearray()
         try:

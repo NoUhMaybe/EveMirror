@@ -1,6 +1,9 @@
 # Implementation status - 2026-10-18
 
-Branch: `codex/distributed-foundation`; Phase 5 started from clean
+Branch: `codex/distributed-foundation`; Phase 6 started clean at `8299989`, retaining
+the Phase 5 CI synchronization repair. Browser pairing, typed polling/projections,
+modular semantic widgets and portrait dashboard are implemented. Deployment, actual
+Pi performance and live integration acceptance remain separate. Phase 5 started from clean
 `1a50bc3fc3499ad196e5f4422763935c4cc366a5` (Phase 4).
 Distributed voice now extends the existing authenticated edge socket, common
 three-provider agent/tools and persistent timers. Voice is optional and requires
@@ -17,16 +20,50 @@ infrastructure, firmware or deployed service was changed.
 | 3 Providers/registry | Native Ollama, official OpenAI Responses and Anthropic Messages adapters; bounded structured tool loop; typed registry/permissions; real MCP stdio/HTTP; temporary isolated sessions; authenticated text API/CLI | Non-streaming; live model/API quality and deployed endpoints unverified; sensitive confirmation flow and generic durable MCP action journal deferred |
 | 4 Core tools | SQLite timers/alarms and durable native receipts; Open-Meteo service; restricted native HA/media; optional SearXNG; semantic views, scoped snapshots and durable event polling | Live endpoint/device acceptance and generic MCP durable transactions; Phase 5 adds alarm output/cache |
 | 5 Voice | Native-rate Pi capture/resampling, local Hey Eve/Silero; CPU INT8 faster-whisper; Piper; bounded acknowledged Pi output; half duplex/mute/stop/follow-up; durable independent offline alarms; scoped volatile voice state | Trusted deployment models and real inference/audio quality; physical Pi acceptance; Linux optional-role install; no AEC/barge-in or GPU claims |
-| 6 Dashboard | Extracted weather normalization, actual weekly/daily values, null/stale handling, cache invalidation, repaired TypeScript/build, pure tests | Componentization, browser auth/transport, state machine, reconnect/snapshots, real timer/home/media widgets, portrait/performance checks |
+| 6 Dashboard | Scoped persistent browser cookies/pairing, CSRF/Origin, generated contracts, bounded polling/cursor recovery, modular React, playback subtitles/orb, backend weather/timers/alarms/home/media, portrait browser tests, shader/static quality presets, deployment examples | Physical native-resolution/standing-distance acceptance, Pi CPU/RSS/GPU/FPS/soak, live model/audio/HA, Linux/container/hosted CI run |
 | 7 Presence | Local hardware module survives network loss in simulation | Sensor interface/driver, debounce, absence/override/protected-activity policy, offline automatic dim/wake |
-| 8 Hardening | Compose/Dockerfile/systemd examples, health, security/privacy/recovery/backup/hardware docs | Linux/container deployment, actual recovery/security review, browser sessions, metrics and hardware benchmarks |
+| 8 Hardening | Compose/Dockerfile/systemd examples, health, security/privacy/recovery/backup/hardware docs | Linux/container deployment, actual recovery/security review, metrics and hardware benchmarks |
 
 The text agent is functional through the common orchestration path. Defaults select
 Ollama, but a model must be explicitly configured; otherwise text turns report 503
 while the existing gateway still runs. Cloud requires explicit opt-in and there
 is no provider fallback. HA/search and speech default to unconfigured/disabled.
 Negotiated voice routes PCM to local STT and the same agent; old transport-only
-peers keep their discard/injected consumer. React still uses the legacy relay.
+peers keep their discard/injected consumer. React now uses the paired browser API;
+the relay remains only in the coherent old-stack rollback set.
+
+## Phase 6 delivery and validation
+
+See [PHASE6_DASHBOARD.md](PHASE6_DASHBOARD.md) for pairing, API/cursors, privacy,
+component ownership, layout priorities, voice timing, kiosk/TLS, benchmarks and the
+complete legacy disposition. Package version is 0.6.0. New SQLite migration 3 holds
+only hashed browser credentials and pairing approvals in the existing database.
+Existing application/voice contracts remain v1. Additive edge `voice.control` and
+`voice.control_ack` confirm persisted software mute. Stop uses existing session
+cancellation and clears follow-up eligibility; alarms/replay protection remain owned
+by the existing runtime. An end-to-end long-response case found and fixed stuck
+browser captions after cancelled delivery tracking closed.
+
+The old React monolith/styles were replaced with transport/store/components/widgets,
+shader animation and static fallback. Browser state never becomes an independent
+timer/alarm database. Daily charts use actual hours from the shared weather cache;
+weekly results alone deliberately contain none. Unavailable data stays unknown.
+Automatic home/media confirmations expire while explicit views persist. The
+standalone Piper speaker audition moved to `tools/audio/`; remaining legacy
+runtime modules are retained because old supervisor/agent imports still use them.
+
+Validation is recorded against this tree below; the previous phase tables are
+historical. No deployment or physical acceptance is implied by simulations.
+
+| Check | Phase 6 result |
+|---|---|
+| Full Python 3.11.9 / 3.12.10 on Windows | **299 passed on each**; all original 272 retained; existing Starlette/httpx warning on 3.11 only |
+| Frontend unit/schema/state tests | **26 passed**, including original four weather cases |
+| Chromium browser integration | **9 passed** across 1080x1920, 720x1280, 1440x900; complete voice/tools, reload, multi-timer pause/resume, both expiry paths, cancellation/revocation, mute and WebGL fallback |
+| Ruff, format, schemas, typecheck/build, simulations | Passed: Ruff lint/111-file format, generated contracts/schema exports, frontend format/typecheck/build, transport and 21-case voice simulation, both pip checks and 0.6.0 editable installs, workflow/compose YAML |
+| Bundle | About 778 kB JS / 196 kB gzip total; 292 kB / 72 kB gzip entry, lazy Three.js 470 kB / 117 kB gzip; prior 1026 / 284 kB |
+| Visual review | Real fixture screenshots, bounded/nonoverlapping geometry checks, long captions, weather, countdown, alarm/offline/settings; reviewed fixture captures; reduced motion and actual WebGL context-loss fallback tested |
+| Unavailable here | Linux/WSL, Docker/container build/run, real Pi/display/GPU/CPU/RSS/soak, trusted models, live weather/HA/cloud |
 
 ## CI recovery synchronization follow-up
 
@@ -335,19 +372,16 @@ hardware and service/network addresses during deployment. No Intel Arc accelerat
 live inference/weather/HA or physical device test ran. Follow
 [SECURITY_AND_HARDWARE.md](SECURITY_AND_HARDWARE.md) for manual acceptance.
 
-## Exact next steps: Phase 6
+## Exact next steps: deployment acceptance and Phase 7
 
-1. Implement browser sessions with explicit device/voice scopes and CSRF/Origin
-   policy; keep operator, provider and edge credentials out of React.
-2. Generate TypeScript contracts for application and voice snapshots. Replace the
-   legacy relay with authenticated snapshot/event transport, durable revision and
-   volatile caption-cursor recovery; test expiry, reconnect and offline states.
-3. Split semantic timer/alarm, weather, home/media and voice widgets. Use real
-   software playback timing for captions, null/stale/unknown states and explicit
-   alarm acknowledgment. Do not equate delivery with physical action/sound.
-4. Add state-machine/component and auth/recovery tests, portrait/accessibility
-   checks, then measure bundle/render/CPU/RSS/FPS on the actual Pi. Optimize from
-   measurements while preserving visual and hardware behavior.
-5. Run the Phase 5 real-model and Pi manual checklist in a separately authorized
-   window. Retire legacy relay/voice consumers only after replacements and physical
-   acceptance pass; preserve utilities and firmware rollback.
+1. Review and push the milestone when desired; inspect the Linux/Windows foundation
+   matrix and Ubuntu browser job. Build/run the prepared container in a test host.
+2. In a separately authorized deployment window, configure exact TLS origin, proxy
+   trust, browser grants and pairing; retain database/build/profile rollback copies.
+3. Run Phase 5 real-model/audio and Phase 6 native portrait, reboot, renewal,
+   cancellation/mute, offline timer and actual HA acceptance. Measure Pi render,
+   memory/CPU and eight-hour soak before selecting a quality default.
+4. Retire old supervisor/relay/voice modules together only when hardware rollback is
+   no longer needed. Preserve firmware and independent hardware/audio utilities.
+5. Continue Phase 7 local presence policy only after its sensor/driver and protected
+   activity behavior are separately specified and authorized.

@@ -303,6 +303,51 @@ class MCPServer(PrivateConfig):
         return self
 
 
+class BrowserGrant(PrivateConfig):
+    captions: bool = False
+    timers: bool = False
+    home_control: bool = False
+    voice_control: bool = False
+    debug: bool = False
+    home_entities: set[str] = Field(default_factory=set)
+
+
+class BrowserSettings(PrivateConfig):
+    enabled: bool = False
+    origins: list[str] = Field(default_factory=list, max_length=8)
+    allow_http_loopback: bool = False
+    devices: dict[DeviceId, BrowserGrant] = Field(default_factory=dict)
+    session_seconds: int = Field(default=2592000, ge=60, le=7776000)
+    pairing_seconds: int = Field(default=300, ge=30, le=600)
+    max_sessions: int = Field(default=128, ge=1, le=1024)
+    static_root: Path | None = None
+
+    @model_validator(mode="after")
+    def policy(self):
+        for origin in self.origins:
+            parsed = urlsplit(origin)
+            if (
+                parsed.scheme not in {"https", "http"}
+                or not parsed.hostname
+                or parsed.username
+                or parsed.password
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+                or (
+                    parsed.scheme == "http"
+                    and not (
+                        self.allow_http_loopback
+                        and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+                    )
+                )
+            ):
+                raise ValueError("Browser origins require HTTPS or explicit HTTP loopback")
+        if self.enabled and (not self.origins or not self.devices):
+            raise ValueError("Browser access requires exact origins and explicit device grants")
+        return self
+
+
 class ServerSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EVE_SERVER_",
@@ -339,6 +384,7 @@ class ServerSettings(BaseSettings):
     agent_prompt_suffix: str = Field(default="", max_length=4096, repr=False)
     speech: SpeechSettings = Field(default_factory=SpeechSettings)
     voice_devices: dict[DeviceId, VoiceGrant] = Field(default_factory=dict)
+    browser: BrowserSettings = Field(default_factory=BrowserSettings)
     database_path: Path = Path("data/server.sqlite3")
     database_busy_ms: int = Field(default=5000, ge=100, le=10000)
     max_operations: int = Field(default=100000, ge=100, le=10000000)
@@ -377,6 +423,13 @@ class ServerSettings(BaseSettings):
             raise ValueError("Operator, device and agent-client credentials must all be different")
         if not self.voice_devices.keys() <= self.edge_tokens.keys():
             raise ValueError("Voice grants must refer to configured edge devices")
+        if not self.browser.devices.keys() <= self.edge_tokens.keys():
+            raise ValueError("Browser grants must refer to configured edge devices")
+        if any(
+            not grant.home_entities <= self.home.entities.keys()
+            for grant in self.browser.devices.values()
+        ):
+            raise ValueError("Browser grants must refer to approved home entities")
         if any(
             not grant.home_entities <= self.home.entities.keys()
             for grant in self.voice_devices.values()

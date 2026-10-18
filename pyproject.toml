@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evemirror"
-version = "0.5.0"
+version = "0.6.0"
 description = "Local-first distributed smart mirror foundation"
 requires-python = ">=3.11"
 dependencies = [
@@ -35,7 +35,7 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "packages.protocol" = ["schema.json"]
-"packages.application" = ["schema.json", "voice.schema.json"]
+"packages.application" = ["schema.json", "voice.schema.json", "browser.schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

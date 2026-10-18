@@ -42,6 +42,9 @@ from packages.protocol import (
     PlaybackEnd,
     StateSnapshot,
     TimerSync,
+    VoiceControl,
+    VoiceControlAck,
+    VoiceControlAckPayload,
     VoiceStatus,
     parse_message,
 )
@@ -198,6 +201,24 @@ class EdgeRuntime:
             elif isinstance(event, Cancel):
                 if self.voice and event.session_id == self.voice.session_id:
                     await self.voice.cancel()
+            elif isinstance(event, VoiceControl):
+                if self.voice is None:
+                    raise ValueError("Voice control was not negotiated")
+                # Persist mute before acknowledging; ordinary cancellation preserves alarms.
+                try:
+                    await self.voice.set_muted(event.payload.muted)
+                    payload = VoiceControlAckPayload(status="completed", muted=self.voice.muted)
+                except SpeechError:
+                    payload = VoiceControlAckPayload(
+                        status="error", muted=self.voice.muted, error="voice_control_failed"
+                    )
+                await self._send(
+                    VoiceControlAck(
+                        device_id=self.settings.device_id,
+                        request_id=event.request_id,
+                        payload=payload,
+                    )
+                )
             elif not isinstance(event, Heartbeat):
                 raise ValueError("Message direction is not permitted")
 
@@ -230,7 +251,7 @@ class EdgeRuntime:
         ) as socket:
             self._socket = socket
             capabilities = (
-                ("brightness", "pcm_upload", "voice", "playback", "timer_sync")
+                ("brightness", "pcm_upload", "voice", "playback", "timer_sync", "voice_control")
                 if self.voice and self.voice.storage_ready
                 else ("brightness", "pcm_upload")
             )
