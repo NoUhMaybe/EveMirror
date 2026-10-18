@@ -139,15 +139,18 @@ def acceptance(image):
             with httpx.Client(
                 base_url=origin, verify=context, trust_env=False, timeout=5
             ) as client:
+                last_status = "no response"
                 while time.monotonic() < deadline:
                     try:
-                        if client.get("/health/live").status_code == 200:
+                        response = client.get("/health/live")
+                        last_status = str(response.status_code)
+                        if response.status_code == 200:
                             break
-                    except httpx.TransportError:
-                        pass
+                    except httpx.TransportError as exc:
+                        last_status = type(exc).__name__
                     time.sleep(0.25)
                 else:
-                    raise RuntimeError("Container readiness deadline exceeded")
+                    raise RuntimeError("Container readiness deadline exceeded: " + last_status)
                 assert client.get("/").status_code == 200
                 assert client.get("/settings").status_code == 200
                 html = client.get("/").text
@@ -225,6 +228,13 @@ def acceptance(image):
                     "null",
                 }
             return report
+        except Exception:
+            for name in (backend, proxy):
+                logs = docker("logs", "--tail", "60", name, check=False)
+                logs = logs.replace(operator, "[redacted]").replace(edge, "[redacted]")
+                status = docker("inspect", "-f", "{{.State.Status}}", name, check=False)
+                print(json.dumps({"container": name, "status": status, "logs": logs}), flush=True)
+            raise
         finally:
             # Only resources with this invocation's random identity are removed.
             for name in [proxy, backend]:

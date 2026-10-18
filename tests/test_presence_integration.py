@@ -20,7 +20,7 @@ from tests.test_browser_security import ORIGIN, WRITE, configure, pair
 from tests.test_edge_integration import live_server, until
 from tests.test_presence import Clock
 from tests.test_voice_endtoend import edge_settings
-from tests.voice_fixtures import WAKE_FRAME, Detector, Microphone, Speaker
+from tests.voice_fixtures import WAKE_FRAME, Detector, Microphone, Speaker, capture_ready
 
 
 async def test_presence_transport_events_and_browser_settings_receipts(settings, tmp_path):
@@ -179,6 +179,40 @@ async def test_local_wake_and_alarm_protection_while_backend_unreachable(tmp_pat
         assert runtime.display.status.activity_protected
         await runtime.voice._playback_activity(False, None)
     finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_failed_reconnect_during_local_wake_chime_does_not_cancel_capture(tmp_path):
+    edge = edge_settings(tmp_path, 1)
+    microphone, speaker = Microphone(), Speaker()
+    speaker.block = True
+    runtime = EdgeRuntime(
+        edge, SimulatedHardware(), audio_source=microphone, detector=Detector(), speaker=speaker
+    )
+    entered, fail = asyncio.Queue(), asyncio.Queue()
+
+    async def failed_connection():
+        entered.put_nowait(True)
+        await fail.get()
+        raise OSError("Injected failed connection without an established socket")
+
+    runtime._connection = failed_connection
+    task = asyncio.create_task(runtime.run())
+    try:
+        await asyncio.wait_for(entered.get(), 5)
+        await until(lambda: capture_ready(runtime, "IDLE"))
+        await microphone.emit(WAKE_FRAME, 5)
+        await until(lambda: runtime.voice.player.busy and len(speaker.calls) == 1)
+        generation = runtime.voice.generation
+        fail.put_nowait(True)
+        await asyncio.wait_for(entered.get(), 5)  # Previous connection cleanup has finished.
+        assert runtime.voice.state == "WAKE_DETECTED" and runtime.voice.player.busy
+        assert runtime.voice.generation == generation and not speaker.cancelled
+        speaker.block = False
+        await until(lambda: capture_ready(runtime, "LISTENING"))
+    finally:
+        speaker.block = False
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
 

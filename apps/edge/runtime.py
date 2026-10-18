@@ -318,9 +318,12 @@ class EdgeRuntime:
                         type(exc).__name__,
                     )
                 finally:
+                    had_socket = self._socket is not None
                     self.connected.clear()
                     self._socket = None
-                    if self.voice:
+                    if self.voice and had_socket:
+                        # A failed reconnect is not a new disconnect. Repeated
+                        # attempts must not cancel local offline wake/capture.
                         await self.voice.disconnected()
                     for pending in list(self._receipts.values()):
                         if not pending.done():
