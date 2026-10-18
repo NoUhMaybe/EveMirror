@@ -32,7 +32,56 @@ Negotiated voice routes PCM to local STT and the same agent; old transport-only
 peers keep their discard/injected consumer. React now uses the paired browser API;
 the relay remains only in the coherent old-stack rollback set.
 
-## Phase 6 delivery and validation
+## Phase 6 cancellation ordering repair
+
+The [Phase 6 Actions run](https://github.com/NoUhMaybe/EveMirror/actions/runs/39154983951)
+for `ad900152d20191e14271ef9aead7ba55cd6bb97d` failed on Ubuntu/Python 3.11:
+298 tests passed, while programmatic cancellation left the controller TRANSCRIBING
+instead of IDLE. The other three foundation jobs and the dashboard job passed.
+This is a production state-management defect, distinct from the earlier fixture
+synchronization repair. The Starlette/httpx deprecation remains unrelated.
+
+The server can have sent TRANSCRIBING before cancellation without the edge having
+handled it yet. Waiting for STT entry or backend task cleanup does not drain that
+incoming stream. `cancel()` previously retained `session_id`, and the status handler
+accepted any message matching it, including FOLLOW_UP that could reopen capture.
+An event-gated real-socket test reproduced the exact IDLE-to-TRANSCRIBING regression
+three times on each available Windows Python 3.11.9 and 3.12.10 before the fix.
+
+The edge now revokes its active identity before the first asynchronous cleanup wait,
+retains local UUIDs for the outgoing cancellation, and checks session, upload or
+playback request, terminal completion and generation. A handler blocked on capture
+must recheck after acquiring that lock. Old playback frames cannot start sound or
+clear newer transfers; queued ordinary output and late chime completion are stopped.
+Capture remains suppressed during cleanup. Independent alarms and existing hardware
+receipts/replay protection stay on their original paths. Valid follow-up speech
+still uses fresh wire identities and the existing backend conversation.
+
+`tests/test_voice_cancellation.py` deliberately releases delayed statuses during
+cleanup, after cancellation and after a new turn, covers lock-waiting handlers,
+request mismatch, terminal duplicates, stale/queued playback, queued alarms and
+late chimes, then exercises a fresh wake and follow-up over authenticated sockets.
+The original failing recovery assertion is retained. Timeouts were not increased,
+and no test was skipped or marked flaky. Interruption tests also verify cleanup of
+partial/playing speech before accepting a new turn, without waiting for a real timeout.
+
+| Check for this repair | Result |
+|---|---|
+| Deterministic reproduction before the fix | 3/3 failures on each local Python version, exact delayed TRANSCRIBING regression |
+| Final focused repetition (original failing test plus 17 regressions) | **20 consecutive runs on each Python version**, 360 executions each / **720 passed total** |
+| Full Windows Python 3.11.9 / 3.12.10 suites | **316 passed on each**, including all original 299; existing Starlette/httpx warning on 3.11 only |
+| Voice simulation / original transport simulation | **21 voice cases passed on each Python version**; transport accepted simulated 35% ACK and 16000 in-memory PCM bytes on each |
+| Frontend unit / Chromium browser suites | **26 / 9 passed**; browser cases cover all three existing portrait/desktop projects |
+| Lint, format, dependencies, generated contracts | Ruff passed, 112 Python files formatted; both pip checks passed; npm audit reported zero vulnerabilities; frontend format/typecheck/build and generated TypeScript/validator check passed |
+| Protocol/application/voice/browser schemas | All four exports unchanged; no protocol or dependency changes |
+
+Local Linux execution is unavailable (WSL and containers are not installed).
+The pushed fix must pass all four Linux/Windows Python matrix jobs and the
+dashboard job before Phase 7. Hosted results belong to the exact pushed SHA;
+passing this Windows verification alone is not evidence that Linux CI passed.
+Real models, sound devices, Pi/Feather hardware and deployed services were not used.
+
+## Phase 6 delivery and validation (initial milestone)
 
 See [PHASE6_DASHBOARD.md](PHASE6_DASHBOARD.md) for pairing, API/cursors, privacy,
 component ownership, layout priorities, voice timing, kiosk/TLS, benchmarks and the

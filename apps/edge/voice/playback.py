@@ -161,6 +161,7 @@ class PlaybackReceiver:
         self.sequence = 0
         self.updated = 0
         self.task = None
+        self.output_begin = None
         self.used = set()
 
     async def _status(self, event, status, code=None):
@@ -238,6 +239,7 @@ class PlaybackReceiver:
                 await self._status(begin, "failed", exc.code)
                 return "failed"
 
+        self.output_begin = begin
         self.task = asyncio.create_task(output())
         self.task.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
 
@@ -252,14 +254,32 @@ class PlaybackReceiver:
             self.clear()
             await self._status(event, "failed", "playback_transfer_timeout")
 
-    async def cancel(self, event=None):
+    async def cancel(self, event=None, *, preserve_alarms=False):
+        output = self.output_begin
+        output_matches = event is None or (
+            output
+            and (event.request_id, event.session_id) == (output.request_id, output.session_id)
+        )
+        task = self.task if output_matches else None
+        if (
+            task
+            and not task.done()
+            and not task.cancelling()
+            and not (preserve_alarms and output.payload.alarm_id)
+        ):
+            # finish() schedules output; it may not have acquired the speaker yet.
+            task.cancel()
+        elif preserve_alarms and output and output.payload.alarm_id:
+            task = None
         assembly_matches = (
             self.begin
             and event is not None
             and (event.request_id, event.session_id)
             == (self.begin.request_id, self.begin.session_id)
         )
-        if event is None or assembly_matches:
+        if (event is None or assembly_matches) and not (
+            preserve_alarms and self.begin and self.begin.payload.alarm_id
+        ):
             self.clear()
             if assembly_matches:
                 await self._status(event, "cancelled")
@@ -267,7 +287,7 @@ class PlaybackReceiver:
             self.manager.active_request,
             self.manager.active_session,
         )
-        if matches:
+        if matches and not (preserve_alarms and self.manager.active_alarm):
             await self.manager.cancel()
-        if matches and self.task:
-            await asyncio.gather(self.task, return_exceptions=True)
+        if task:
+            await asyncio.gather(task, return_exceptions=True)

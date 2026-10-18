@@ -238,6 +238,23 @@ issued tool action. Alarm dismissal is separate. Muting the microphone or cancel
 a voice answer preserves an active alarm; shutdown stops all output cleanly.
 Full spoken barge-in/acoustic echo cancellation is not implemented.
 
+Cancellation retires the active transport session/upload request and increments an
+edge-local generation **before** awaiting turn, speaker or capture cleanup. Outbound
+Cancel messages retain their original local UUIDs. Incoming statuses require the
+live session and upload UUID; SPEAKING instead requires an accepted playback UUID
+that is still playing. Handlers recheck the generation after acquiring the capture
+lock. Completed turns cannot accept another status or extend follow-up by replaying
+FOLLOW_UP. The retained follow-up session is only a reference for explicit stop;
+the next utterance gets new wire UUIDs while the backend may reuse its conversation.
+
+Speech playback requires that same active turn. Old begin/chunk/end/cancel messages
+cannot start output or clear a newer assembly. Cancellation stops output already
+queued by PlaybackEnd before it acquires the speaker, and late wake-chime completion
+cannot reopen listening. Independent alarm identities, durable receipts, output
+priority, half-duplex suppression and echo cooldown remain in force. Native/driver
+cleanup may still take time; capture stays blocked until its owner has finished.
+No wire schema, firmware or hardware replay-policy change is needed for these checks.
+
 Native model cancellation is cooperative. Timeouts/cancellation discard results,
 signal the worker and retain its occupied slot until native inference finishes;
 they do not start concurrent replacement work on that model. Shutdown waits for
