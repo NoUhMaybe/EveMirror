@@ -5,6 +5,13 @@ firmware in `firmware/`, training tools in `training/`, and standalone diagnosti
 in `tools/`. The earlier voice stack stays under `legacy/` until its replacements
 are validated. No firmware logic or electrical parameters were changed.
 
+Backend services live in `apps/server/services/` and register tools through
+`apps/server/tools/services.py`. `packages/protocol/` owns the device/audio schema;
+`packages/application/` contains the separate generated semantic state/event
+schema; `packages/weather/` shares pure normalization with legacy weather.
+Database backup and both schema exporters belong in `scripts/`. Runtime SQLite
+files, WAL/SHM companions and local verification environments stay ignored.
+
 | Previous path | Current path |
 |---|---|
 | `dashboard/` | `apps/dashboard/` |

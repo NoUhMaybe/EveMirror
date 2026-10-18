@@ -1,5 +1,7 @@
 import json
 import os
+import sys
+from pathlib import Path
 import re
 import threading
 from datetime import datetime, timezone
@@ -22,27 +24,12 @@ CACHE_FILE_PATH = os.path.join(os.path.dirname(__file__), "weather_cache.json")
 # In-process weather cache, keyed by location coordinates.
 _WEATHER_CACHE: Dict[str, Dict[str, object]] = {}
 
-_WEATHER_CODE_MAP = {
-    0: "clear",
-    1: "mainly clear",
-    2: "partly cloudy",
-    3: "overcast",
-    45: "fog",
-    48: "rime fog",
-    51: "light drizzle",
-    53: "drizzle",
-    55: "heavy drizzle",
-    61: "light rain",
-    63: "rain",
-    65: "heavy rain",
-    71: "light snow",
-    73: "snow",
-    75: "heavy snow",
-    80: "rain showers",
-    81: "heavy rain showers",
-    82: "violent rain showers",
-    95: "thunderstorm",
-}
+# Share pure condition/nullable-column transformations; preserve the old relay contract.
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+from packages.weather import CONDITIONS as _WEATHER_CODE_MAP, column as _weather_column
+
 
 
 def should_enable_thinking(user_text: str) -> bool:
@@ -246,10 +233,6 @@ def _extract_today_hourly_rows(source: Dict[str, object]) -> Tuple[Optional[str]
         return None, []
 
     hour_times = hourly.get("time", []) if isinstance(hourly.get("time", []), list) else []
-    hour_temps = hourly.get("temperature_2m", []) if isinstance(hourly.get("temperature_2m", []), list) else []
-    hour_pop = hourly.get("precipitation_probability", []) if isinstance(hourly.get("precipitation_probability", []), list) else []
-    hour_precip = hourly.get("precipitation", []) if isinstance(hourly.get("precipitation", []), list) else []
-    hour_humidity = hourly.get("relative_humidity_2m", []) if isinstance(hourly.get("relative_humidity_2m", []), list) else []
 
     out: List[Dict[str, object]] = []
     for i, ts in enumerate(hour_times):
@@ -260,10 +243,10 @@ def _extract_today_hourly_rows(source: Dict[str, object]) -> Tuple[Optional[str]
         out.append(
             {
                 "time": ts_text,
-                "temperature_f": hour_temps[i] if i < len(hour_temps) else None,
-                "precipitation_probability_pct": hour_pop[i] if i < len(hour_pop) else None,
-                "precipitation_in": hour_precip[i] if i < len(hour_precip) else None,
-                "relative_humidity_pct": hour_humidity[i] if i < len(hour_humidity) else None,
+                "temperature_f": _weather_column(hourly, "temperature_2m", i),
+                "precipitation_probability_pct": _weather_column(hourly, "precipitation_probability", i),
+                "precipitation_in": _weather_column(hourly, "precipitation", i),
+                "relative_humidity_pct": _weather_column(hourly, "relative_humidity_2m", i),
             }
         )
 

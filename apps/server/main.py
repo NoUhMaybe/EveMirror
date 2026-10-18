@@ -25,9 +25,13 @@ from apps.server.auth import authenticated
 from apps.server.gateway import Gateway, GatewayError
 from apps.server.providers.base import LLMProvider
 from apps.server.providers.factory import create_provider
+from apps.server.services.api import application_router
+from apps.server.services.common import utc_now as service_now
+from apps.server.services.hub import Services
 from apps.server.tools.mcp_client import MCPManager
 from apps.server.tools.native import register_native
 from apps.server.tools.registry import ToolRegistry
+from apps.server.tools.services import register_services
 from packages.protocol import (
     AudioBegin,
     AudioChunk,
@@ -69,18 +73,24 @@ def create_app(
     audio_consumer: AudioConsumer | None = None,
     llm_provider: LLMProvider | None = None,
     native_clock=None,
+    service_clock=None,
+    service_transports=None,
 ) -> FastAPI:
     settings = settings or ServerSettings()
     gateway = Gateway(settings)
     consumers: set[asyncio.Task] = set()
     registry = ToolRegistry()
     register_native(registry, gateway, clock=native_clock)
+    services = Services(
+        settings, gateway, clock=service_clock or service_now, transports=service_transports
+    )
+    register_services(registry, services)
     provider, configuration_error = (
         (llm_provider, None) if llm_provider else create_provider(settings)
     )
     sessions = SessionStore(settings.agent)
     mcp = MCPManager(settings.mcp_servers, registry)
-    agent = Orchestrator(settings, provider, registry, sessions, mcp)
+    agent = Orchestrator(settings, provider, registry, sessions, mcp, services)
 
     async def expire_sessions():
         while True:
@@ -89,14 +99,18 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app):
-        await mcp.refresh()
-        reaper = asyncio.create_task(expire_sessions())
+        reaper = None
         try:
+            await services.start()
+            await mcp.refresh()
+            reaper = asyncio.create_task(expire_sessions())
             yield
         finally:
-            reaper.cancel()
-            await asyncio.gather(reaper, return_exceptions=True)
+            if reaper:
+                reaper.cancel()
+                await asyncio.gather(reaper, return_exceptions=True)
             await sessions.close()
+            await services.close()
             await mcp.close()
             if provider:
                 await provider.close()
@@ -108,7 +122,7 @@ def create_app(
 
     app = FastAPI(
         title="Eve Server",
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -116,12 +130,14 @@ def create_app(
     )
     app.state.gateway = gateway
     app.state.agent = agent
+    app.state.services = services
     app.include_router(agent_router(settings, agent, mcp, configuration_error))
+    app.include_router(application_router(settings, services))
     app.add_middleware(AgentBodyLimit)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request, error):
-        if request.url.path.startswith("/api/agent"):
+        if request.url.path.startswith(("/api/agent", "/api/application")):
             return JSONResponse({"detail": "invalid_request"}, status_code=422)
         return await request_validation_exception_handler(request, error)
 
@@ -148,7 +164,8 @@ def create_app(
             "provider": settings.llm_provider if provider else "unconfigured",
             "stt": "unconfigured",
             "tts": "unconfigured",
-            "home_assistant": "unconfigured",
+            "home_assistant": "configured" if services.home.configured else "unconfigured",
+            "services": services.availability(),
         }
 
     @app.post("/api/devices/{device_id}/commands", dependencies=[Depends(operator)])

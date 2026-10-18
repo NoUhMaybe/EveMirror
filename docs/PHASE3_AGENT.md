@@ -85,7 +85,7 @@ central voice-friendly prompt. It does not grant tool permissions.
 | `mirror.get_status` | Correlated gateway `get_status`; returns actual edge ACK/state or an honest failure | Read-only, authorized device only |
 | `mirror.set_brightness` | Correlated gateway command through the existing edge journal and Feather service | Low-risk mutation, disabled by default |
 | Approved `mcp.<server>.<tool>_<digest>` | Discovered schema with administrator description and policy; unavailable if disconnected/missing | Explicit administrator category |
-| Weather, timers, HA, media, search | Planned Phase 4 integrations; no production stubs registered | Unavailable |
+| Weather, timers, HA, media, search, dashboard | Added in [Phase 4](PHASE4_SERVICES.md), using this same registry | Read-only or explicitly approved low-risk mutation; availability depends on service/configuration |
 
 Mirror tools accept optional `device_id`, defaulting to the session's bound
 device or a principal's sole device. Brightness also requires integer `percent`
@@ -103,8 +103,9 @@ Device-error ACKs become tool errors. An accepted target is not actual brightnes
 or fade completion; both remain unknown with existing firmware.
 
 Duplicate call IDs reuse their receipt; conflicting arguments are rejected.
-Identical mutations in one turn execute once even if the provider supplies new
-call IDs. Reused execution receipts carry `replayed=true` and describe historical
+Identical existing hardware/generic mutations in one turn execute once even if
+the provider supplies new call IDs. Phase 4 timer/HA tools instead use call identities
+or explicit operation UUIDs, allowing intentional identical actions. Reused execution receipts carry `replayed=true` and describe historical
 execution, never a fresh reading or new state change. Timeout/cancellation after a
 mutation starts is indeterminate. There is no automatic retry. Durable replay
 protection is provided by the edge for native hardware actions, not by a generic
@@ -198,8 +199,10 @@ Completed request UUIDs reuse their result without running the model/tools again
 even if the original request omitted a session ID. A UUID with different input
 returns 409. Under the response-cache byte limit, older result text is discarded
 while ID/fingerprint tombstones remain; retrying such a request returns 409
-`retry_result_expired`, without re-execution. These in-memory receipts disappear
-on session expiry/server restart, so clients must not blindly replay uncertain turns.
+`retry_result_expired`, without re-execution. Response text disappears on session expiry/server restart. Phase 4 additionally
+persists hashed turn claims and native operation receipts: reusing an old request
+UUID after cache loss returns a processed/indeterminate/conflict error instead of
+regenerating actions. Inspect authoritative state before any new uncertain action.
 
 Requests are bounded to 32 KiB before parsing (413 on overflow); text is limited
 to 8192 characters / 16384 UTF-8 bytes. Malformed input returns 422; missing
@@ -212,7 +215,7 @@ The development CLI calls these routes, supports repeated text, `/reset`, `/stat
 `/quit`, and requests cancellation on Ctrl+C. Provider selection is deliberately
 server configuration, not a per-request/CLI override that could change privacy routing.
 
-## Verification boundaries and Phase 4
+## Verification boundaries and subsequent work
 
 Tests use the real OpenAI/Anthropic SDKs with mocked HTTP and the native Ollama
 adapter with mocked HTTP. All three follow the same time/status and simulated
@@ -224,13 +227,12 @@ are required or claimed. A tool-capable installed model and its live endpoint
 remain deployment verification tasks; deterministic tests cannot establish model
 quality or whether a chosen model supports particular reasoning settings.
 
-Phase 4 should first add SQLite timer migrations and restart/expiry/pause/resume/
-cancel tests, then expose registry tools using that authoritative service. Extract
-the repaired weather service from `legacy/` behind explicit location/cache settings
-and register real weather tools. Add least-privilege HA entity/service allowlists
-through this MCP layer or a native service with confirmation for sensitive actions.
-Add timer/weather state snapshots and approved media/search/UI tools. Keep voice
-integration, browser authentication and legacy deletion for their later milestones.
+Phase 4 implemented SQLite timer/alarms, durable native receipts and turn replay
+markers, backend weather, restricted native HA/media, optional search and semantic
+state/events. See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) and the current
+[implementation status](IMPLEMENTATION_STATUS.md) for configuration and actual
+validation. Voice integration is Phase 5; browser authentication/React migration
+and legacy retirement remain later milestones.
 
 Official implementation references:
 [Ollama tools](https://docs.ollama.com/capabilities/tool-calling),

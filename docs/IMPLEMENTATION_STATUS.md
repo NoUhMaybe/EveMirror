@@ -1,9 +1,9 @@
 # Implementation status — 2026-10-17
 
-Branch: `codex/distributed-foundation`; clean starting baseline: `91e602c`.
-Phase 3 is implemented on top of the reviewed `d35b5e9` Phase 1-2 baseline: a
-provider-independent text agent with structured tools, MCP and temporary sessions.
-This does not complete the full voice/dashboard/Phase 4 redesign.
+Branch: `codex/distributed-foundation`; Phase 4 started from clean `eb5830b`.
+Persistent timers/alarms, backend weather, restricted native HA/media, optional
+search and scoped semantic state now extend the existing Phase 3 agent.
+Voice integration and dashboard migration remain later milestones.
 No live hardware, infrastructure, firmware or service credentials were changed.
 
 ## Phase results
@@ -13,7 +13,7 @@ No live hardware, infrastructure, firmware or service credentials were changed.
 | 1 Audit/foundation | Audit, architecture, branch, protocol/JSON Schema, redacted settings, pinned dependencies, CI, asset verifier, generated-file cleanup | Hosted CI matrix unrun; verified model discovery not wired into old listener |
 | 2 Edge/server | FastAPI gateway, scoped auth, outbound edge socket, heartbeats/reconnect, snapshots, correlated commands, exact Feather ACKs, durable replay journal, cancellable PCM upload | Mock/real-loopback validation passed; physical Pi/Feather acceptance pending |
 | 3 Providers/registry | Native Ollama, official OpenAI Responses and Anthropic Messages adapters; bounded structured tool loop; typed registry/permissions; real MCP stdio/HTTP; temporary isolated sessions; authenticated text API/CLI | Non-streaming; live model/API quality and deployed endpoints unverified; sensitive confirmation flow and generic durable MCP action journal deferred |
-| 4 Core tools | Legacy weather repairs only | Configured backend weather; persistent timers/alarms; HA/media/search and hardware/UI tool namespaces |
+| 4 Core tools | SQLite timers/alarms and durable native receipts; Open-Meteo service; restricted native HA/media; optional SearXNG; semantic views, scoped snapshots and durable event polling | Live endpoint/device acceptance; audible alarms and offline edge fallback; generic MCP durable transactions remain deferred |
 | 5 Voice | Audio transport and injected consumer interface only | Wake/VAD capture integration, STT, synthesis, Pi playback/cancellation, mute/echo suppression and follow-up |
 | 6 Dashboard | Extracted weather normalization, actual weekly/daily values, null/stale handling, cache invalidation, repaired TypeScript/build, pure tests | Componentization, browser auth/transport, state machine, reconnect/snapshots, real timer/home/media widgets, portrait/performance checks |
 | 7 Presence | Local hardware module survives network loss in simulation | Sensor interface/driver, debounce, absence/override/protected-activity policy, offline automatic dim/wake |
@@ -22,10 +22,64 @@ No live hardware, infrastructure, firmware or service credentials were changed.
 The text agent is functional through the common orchestration path. Defaults select
 Ollama, but a model must be explicitly configured; otherwise text turns report 503
 while the existing gateway still runs. Cloud requires explicit opt-in and there
-is no provider fallback. STT/TTS/HA remain unconfigured, the default audio consumer
+is no provider fallback. HA/search default to unconfigured, STT/TTS are pending, the default audio consumer
 discards PCM after receipt, and the browser still uses the legacy relay.
 
-## Phase 3 delivery and actual validation
+## Phase 4 delivery and actual validation
+
+See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for configuration, every tool,
+SQLite schema/migrations/backup, recovery, permissions and event contracts.
+
+- `apps/server/services/`: lifecycle-owned SQLite connection and transactions,
+  persistent timer state machine/reconciliation and unique pending alarms; durable
+  native operation/turn identities; Open-Meteo/geocoding with TTLs, coalescing,
+  DST, null and bounded stale handling; native restricted HA/media and optional
+  read-only SearXNG clients; scoped presentation state and durable event revisions.
+- `apps/server/tools/services.py`, executor/registry/orchestrator: all new tools
+  use the existing three-provider path, typed arguments, principal/device grants,
+  bounded execution and explicit mutation policy. Distinct timer call identities
+  allow intentional identical timers; retries return receipts without replay.
+  Unknown external writes stay indeterminate across restart.
+- `/api/application/state` and `/events`: typed version-1 private snapshots,
+  selected views/layouts, protected alarm presentation and cursor recovery. These
+  use trusted backend-client credentials, not browser authentication. React keeps
+  its old relay. `packages/application/schema.json` is a separate generated schema;
+  existing device/audio v1 is unchanged.
+- `packages/weather/` shares pure nullable-column/condition normalization with
+  legacy weather; its callers, voice stack, firmware and hardware path are retained.
+  Compose now prepares a writable persistent volume; backup/export scripts, env
+  examples, documentation, package version 0.4.0 and CI schema checks are updated.
+
+Fresh ignored `.venv-phase4`, Python 3.12.10 on Windows, installed from updated
+`requirements/dev.lock`, then `pip install --no-deps -e .`:
+
+| Check | Actual result |
+|---|---|
+| Full Python suite | **218 passed**, including the 145-test Phase 3 baseline; one existing Starlette/httpx deprecation warning |
+| All three provider SDK/native adapters through new tools | Passed with mocked HTTP: two identical timers, weather, HA light, media pause, search and semantic view in the common agent loop |
+| Persistence/recovery/failures | Passed: deadlines, races, repeated cancellation/transaction ownership, offline expiry/restart, unique alarms, ownership/device isolation, corrupt/missing/future schema, migration failure, WAL backup/restore, receipt replay and event cursors |
+| Weather/HA/media/search security | Passed using isolated fixtures; includes DST, units, coalescing/stale/nulls, capabilities, unknown outcomes, unsafe URL rejection, untrusted snippets and reflected-credential redaction |
+| Ruff check / format; clean lock install / pip check | Passed; 79 Python files formatted consistently, package 0.4.0 |
+| Device/audio and application JSON Schemas | Regenerated without drift |
+| Existing real loopback simulation | Passed: simulated 35% ACK and 16,000 in-memory PCM bytes |
+| Frontend tests / typecheck / production build | **4 passed** / passed / passed; existing 1.026 MB JS / 284 KB gzip bundle warning |
+| Configuration / documentation / ignore rules | Active and optional env examples validated without connections; 35 local links resolved; database/WAL/SHM/backups and verification environments ignored |
+
+No live model, cloud, weather/search, Home Assistant or physical device endpoint
+was tested. Production adapters make actual configured requests; fixtures are
+injected only by tests. HA/search are unavailable until configured, weather is
+requested on demand, and mutations remain disabled by default. No Pi audio,
+audible alarm, offline edge fallback, Linux/Python 3.11, Docker/systemd, hosted CI,
+GPU or physical performance acceptance is claimed.
+
+Conversation context/response text remain memory-only. Durable replay markers
+retain identities/hashes, not full conversations; timer names and scoped state
+are private persistent data. Native receipt tables fail closed at bounded capacity
+and need reviewed maintenance. Restoring an older backup can lose newer identities.
+Browser sessions/streaming, generic durable MCP transactions and sensitive action
+confirmation remain deferred. Keep `legacy/` until its consumers migrate.
+
+## Phase 3 delivery and actual validation (historical)
 
 See [PHASE3_AGENT.md](PHASE3_AGENT.md) for the provider matrix, configuration/API,
 permissions, MCP lifecycle, retention, retry behavior and exact limitations.
@@ -80,12 +134,12 @@ The Windows `py -3.12` launcher did not resolve an installed runtime; invoking
 the existing Python 3.12 environment directly successfully created the clean
 verification environment. All listed acceptance checks then passed locally.
 
-Known limits: context, request receipts and sessions are memory-only and expire;
+At the Phase 3 milestone, context, request receipts and sessions were memory-only and expired;
 MCP mutations have no generic durable transaction journal. Never blindly retry an
 uncertain turn after restart/expiry. Whole old turns are discarded under bounds,
 without LLM summaries. Optional model-specific reasoning/temperature settings need
-live compatibility checks. Streaming, speech processing, timers/weather/HA backend
-services and dashboard migration remain later work. `legacy/` is retained.
+live compatibility checks. Phase 4 subsequently implemented timer/weather/HA backend services and durable
+turn/native-action records; streaming, speech processing and dashboard migration remain later work. `legacy/` is retained.
 
 ## Repository cleanup follow-up
 
@@ -178,23 +232,20 @@ hardware and service/network addresses during deployment. No Intel Arc accelerat
 live inference/weather/HA or physical device test ran. Follow
 [SECURITY_AND_HARDWARE.md](SECURITY_AND_HARDWARE.md) for manual acceptance.
 
-## Exact next steps: Phase 4
+## Exact next steps: Phase 5
 
-1. Implement authoritative SQLite timer storage/migrations and deterministic
-   restart/expiry/pause/resume/cancel/acknowledgment tests; register real timer tools
-   through the existing executor. Plan durable edge fallback/reconciliation without
-   claiming offline alarms until tested.
-2. Extract the repaired legacy Open-Meteo service into the backend with explicit
-   location, acquisition/source timestamps, daily/weekly TTLs, bounded stale/null
-   behavior and regression tests. Register real weather tools; retain legacy until
-   dashboard/voice replacements consume the migrated service.
-3. Configure least-privilege HA credentials and explicit approved entities/services.
-   Use this MCP client or a native service behind the registry; sensitive actions
-   stay unavailable until a trusted confirmation mechanism exists. No broad HA
-   service/shell/network exposure.
-4. Add timer/weather snapshots and approved media/search/UI interfaces, with
-   integration tests for actual success/failure and permission checks. Preserve
-   gateway command correlation, deadlines and edge replay behavior.
-5. Verify the chosen live model's tool and reasoning support in a separately
-   authorized environment. Keep browser auth/dashboard and distributed STT/Piper/
-   playback for their later phases; do not delete `legacy/` in Phase 4 prematurely.
+1. Discover verified wake/embedding/Piper assets through the existing manifest
+   verifier. Integrate local edge wake/VAD, bounded PCM capture and cancellation
+   with the existing outbound authenticated audio protocol; keep serial ownership.
+2. Implement a local server STT audio consumer and feed recognized text into this
+   same agent with trusted device/client identity, scopes and cloud-routing policy.
+3. Add server-only Piper synthesis, bounded output transfer, edge playback
+   start/finish/cancel acknowledgments and explicit failure/unknown outcomes.
+4. Test mute, wake cooldown, chime/echo suppression, interruption, follow-up,
+   disconnect/reconnect and no recording/transcript persistence by default. Build
+   a durable alarm consumer keyed by alarm UUID; test playback deduplication and
+   acknowledgment/reconciliation before promising any offline edge fallback.
+5. Run mocked/loopback regressions first. Separately authorize live model and
+   physical microphone/speaker/Pi acceptance. Preserve firmware and `legacy/`
+   until replacement consumers pass; browser sessions and full React migration
+   remain Phase 6.

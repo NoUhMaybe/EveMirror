@@ -102,10 +102,10 @@ tokens cannot issue these HTTP requests. Do not distribute privileged tokens to 
   or failure. A device error must never become a successful tool result.
 - `GET /health/live`: unauthenticated status only, suitable for loopback/container checks.
 
-Current snapshots restore transport/hardware metadata, not timers, weather or
-conversations. Temporary agent context is private to its authenticated principal;
-its API is separate from device protocol v1. Timers/weather and browser
-authentication remain pending.
+These existing snapshots restore transport/hardware metadata. Phase 4 application
+snapshots/events below separately restore timers, alarms and weather; device/audio
+v1 stays unchanged. Temporary conversation context remains private and memory-only.
+Browser authentication remains pending.
 
 ## Text agent HTTP API (Phase 3)
 
@@ -129,8 +129,12 @@ unconfigured providers/capacity return 503, invalid input 422, and bodies over
 
 Turn UUIDs reuse bounded in-memory receipts until session expiry. Context reset
 retains retry receipts. Evicted response text leaves a tombstone that returns
-409 `retry_result_expired`, never re-execution. These are not a persistent agent
-transaction journal. Hardware mutations derive stable UUIDs from the turn,
+409 `retry_result_expired`, never re-execution. Phase 4 adds a durable hashed turn
+claim: after cache loss, a reused UUID returns `turn_already_processed`,
+`turn_indeterminate`, or `request_conflict`, instead of regenerating actions.
+Old supplied session IDs still follow the existing 404 expiry behavior. This does
+not persist conversation text or provide generic durable MCP transactions.
+Hardware mutations derive stable UUIDs from the turn,
 principal/device and typed command, and use the same gateway deadline, ACK/error
 and durable edge journal as existing operator commands. No alternate wire route
 was added, and the v1 device/audio JSON Schema is unchanged.
@@ -138,3 +142,34 @@ was added, and the v1 device/audio JSON Schema is unchanged.
 The API cannot override provider/model, permissions or confirmation through input.
 For full schemas, configuration, privacy and examples see
 [PHASE3_AGENT.md](PHASE3_AGENT.md).
+
+## Application HTTP state/events (Phase 4, schema version 1)
+
+`GET /api/application/state` returns `version`, aware `timestamp`, database
+`revision`, private timers/alarms, freshness-labeled weather, approved cached device
+observations, semantic views/layouts, recent tool summaries and availability.
+The state and event revision are read in one SQLite transaction. Only resources
+belonging to the authenticated principal and permitted device IDs are included;
+no conversation history is returned.
+
+`GET /api/application/events?after=<sequence>&limit=<1..200>` returns `version`,
+`cursor` and scoped `events`. Each event has `event_id`, aware `timestamp`,
+`sequence`, `scope`, optional `device_id`/`resource_id`, `type`, `payload`, and
+`version: 1`. Consumers start with a snapshot, resume after its revision and
+deduplicate by event UUID. A truncated page advances only to its last event;
+an exhausted page can advance past other scopes without revealing their payloads.
+Retained history defaults to 10000 events. Too-old or incompatible cursors return
+409 `snapshot_required`; fetch a new snapshot. Timer/alarm state survives event
+retention independently, and pending alarms remain until explicit acknowledgment.
+
+These routes reuse operator/scoped agent Bearer credentials, reject browser
+Origins and edge tokens, and report 503 if persistent storage is unavailable.
+They add durable polling, not a browser session or WebSocket event stream.
+Semantic commands accept finite views/layouts, never CSS/HTML/JavaScript. A pending
+alarm protects the timer view. See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for
+event types, permission policy, operation UUIDs and reconnect/recovery details.
+
+Python models live in `apps/server/services/events.py`, `models.py` and
+`weather.py`. Regenerate the separate portable contract with
+`python scripts/export_application.py` into `packages/application/schema.json`.
+The original `packages/protocol/schema.json` remains the device/audio contract.

@@ -1,10 +1,10 @@
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from apps.server.agent.sessions import SessionError
-from apps.server.auth import agent_principal
+from apps.server.auth import principal_dependency
 from packages.protocol import DeviceId
 
 
@@ -29,13 +29,7 @@ class TurnRequest(SessionRequest):
 def agent_router(settings, orchestrator, mcp, configuration_error):
     router = APIRouter(prefix="/api/agent")
 
-    async def principal(
-        authorization: str | None = Header(None), origin: str | None = Header(None)
-    ):
-        identity = agent_principal(settings, authorization)
-        if origin is not None or identity is None:
-            raise HTTPException(401, "unauthorized")
-        return identity
+    principal = principal_dependency(settings)
 
     def translate(operation):
         try:

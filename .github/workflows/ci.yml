@@ -24,7 +24,8 @@ jobs:
       - run: python -m pytest -q
       - run: python scripts/simulate.py
       - run: python scripts/export_protocol.py
-      - run: git diff --exit-code -- packages/protocol/schema.json
+      - run: python scripts/export_application.py
+      - run: git diff --exit-code -- packages/protocol/schema.json packages/application/schema.json
   dashboard:
     runs-on: ubuntu-latest
     defaults:

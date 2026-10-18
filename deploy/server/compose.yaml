@@ -8,8 +8,14 @@ services:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
     read_only: true
+    environment:
+      EVE_SERVER_DATABASE_PATH: /var/lib/eve/server.sqlite3
+    volumes:
+      - eve-data:/var/lib/eve
     tmpfs:
       - /tmp:size=16m
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     stop_grace_period: 15s
+volumes:
+  eve-data:

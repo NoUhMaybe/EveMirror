@@ -62,7 +62,9 @@ class ToolRegistry:
         # Empty registry disables network retrieval even for a subsequently modified schema.
         Draft202012Validator(tool.definition.parameters, registry=Registry()).validate(arguments)
         if tool.argument_model:
-            return tool.argument_model.model_validate(arguments, strict=True).model_dump()
+            return tool.argument_model.model_validate_json(
+                json_text(arguments), strict=True
+            ).model_dump(mode="json")
         return arguments
 
     def status(self, principal, limits):

@@ -1,14 +1,16 @@
 # EveMirror
 
 Local-first smart mirror modernization, developed on `codex/distributed-foundation`.
-The **phase 1–3 backend** separates a lightweight Pi edge runtime from an
+The **phase 1–4 backend** separates a lightweight Pi edge runtime from an
 authenticated FastAPI gateway and provider-independent text agent. The existing
 voice application remains available under `legacy/`.
 
 The new runtime transfers PCM audio and validated Feather commands. Text turns
 support native Ollama/OpenAI/Anthropic tool calling, permission checks, approved
-MCP tools and temporary conversations. It does **not yet** transcribe audio,
-synthesize/play speech, schedule timers, or control Home Assistant.
+MCP tools and temporary conversations. Persistent timers/alarms, Open-Meteo weather,
+restricted Home Assistant/media controls, optional SearXNG search and scoped
+semantic state/events use that same agent. HA and search require configuration;
+mutations require explicit permission. Speech processing and playback are pending.
 Follow [implementation status](docs/IMPLEMENTATION_STATUS.md)
 for completed work, validation evidence and exact next steps.
 
@@ -59,8 +61,10 @@ a trusted terminal with `EVE_AGENT_TOKEN` set to a scoped agent-client token (or
 Use `/reset` to clear context and `/quit` to exit. Sessions expire after 60 idle
 seconds. Time and mirror status are read-only; brightness requires an explicit
 backend mutation permission and always uses the existing edge gateway.
-See [the Phase 3 guide](docs/PHASE3_AGENT.md) for configuration, API examples,
-provider support, MCP approval, limits, privacy and verification boundaries.
+See [the Phase 3 guide](docs/PHASE3_AGENT.md) for the agent API and provider setup,
+and [the Phase 4 guide](docs/PHASE4_SERVICES.md) for tools, database backup,
+HA/media/search configuration, permissions and recovery. Automated service tests
+use fixtures; live integrations and audible alarms remain unverified.
 
 ## Further documentation
 
@@ -68,6 +72,7 @@ provider support, MCP approval, limits, privacy and verification boundaries.
 - [Architecture and phased migration](docs/ARCHITECTURE.md)
 - [Protocol and failure semantics](docs/PROTOCOL.md)
 - [Setup, recovery and configuration](docs/DEVELOPMENT.md)
+- [Persistent timers, weather, home/media, search and semantic state](docs/PHASE4_SERVICES.md)
 - [Security, privacy and hardware verification](docs/SECURITY_AND_HARDWARE.md)
 - [Repository layout and moved paths](docs/REPOSITORY_LAYOUT.md)
 - [Legacy voice startup](legacy/README.md)
@@ -81,7 +86,7 @@ flashes or changes connected devices automatically.
 
 ```text
 apps/                Edge runtime, backend and React dashboard
-packages/            Shared protocol
+packages/            Device/application schemas and shared weather normalization
 firmware/feather_m4/  Preserved CircuitPython firmware
 legacy/              Working older voice agent and microphone client
 training/wake_word/   Wake-word training tools and ignored local assets

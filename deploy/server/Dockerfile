@@ -6,7 +6,8 @@ RUN pip install --no-cache-dir -r requirements/server.lock
 COPY pyproject.toml ./
 COPY apps/ apps/
 COPY packages/ packages/
-RUN pip install --no-cache-dir --no-deps . && useradd --uid 10001 --create-home eve
+RUN pip install --no-cache-dir --no-deps . && useradd --uid 10001 --create-home eve \
+    && mkdir -p /var/lib/eve && chown 10001:10001 /var/lib/eve
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \

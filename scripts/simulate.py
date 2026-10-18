@@ -22,6 +22,7 @@ async def main():
     settings = ServerSettings(
         operator_token=operator_token,
         edge_tokens={"simulation": device_token},
+        database_path=Path(":memory:"),
     )
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))

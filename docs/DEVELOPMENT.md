@@ -27,7 +27,7 @@ and `npm.cmd`. No activation or execution-policy modification is needed.
 
 The `requirements/*.lock` files pin the tested foundation dependency versions.
 `common` contains protocol/config/transport; `edge` adds pyserial; `server` adds
-FastAPI/Uvicorn, HTTP, official OpenAI/Anthropic/MCP SDKs and JSON Schema validation;
+FastAPI/Uvicorn, HTTP, official OpenAI/Anthropic/MCP SDKs, IANA tzdata and JSON Schema validation;
 `dev` adds test/lint/legacy-weather HTTP dependencies. Edge locks do not include
 provider or MCP SDKs. Native
 audio, Torch, transcription and Piper packages are deliberately outside these
@@ -82,8 +82,10 @@ headers, and expose only the intended LAN host. Do not disable certificate verif
 The default image installs only server dependencies and runs as an unprivileged
 user with a read-only filesystem. It does not contain LLMs, microphone drivers,
 speaker playback or the React application. Building/running this Docker example
-was not validated in the Windows development session. Persistent backend timers,
-settings storage, migrations and volumes will be added with the corresponding services.
+was not validated in the Windows development session. The Compose example mounts
+a named `eve-data` volume at `/var/lib/eve` and sets the SQLite path there. The
+image prepares that directory for UID 10001. Preserve this volume and its WAL;
+one process owns the database. Local runs default to `data/server.sqlite3`.
 
 ## Edge systemd example
 
@@ -123,16 +125,22 @@ an explicit phase-5 task. Do not commit models or training datasets during migra
 ## Recovery and backup
 
 - Backend restart: edge reconnects with backoff. Transport state/counters reset;
-  no persistent backend assistant/timer state exists yet. In-flight commands
-  become indeterminate; no automatic hardware retry occurs.
+  conversation context/response text expire, but timers, alarms, native operation
+  receipts, turn replay markers and semantic state survive. Overdue timers create
+  one pending alarm on recovery, with their original deadline as expiry. In-flight
+  external actions remain indeterminate; no automatic mutation replay occurs.
 - Edge restart: command journal survives. A command interrupted before ACK
   persistence remains indeterminate and cannot be executed again under its ID.
 - Serial disconnect: report unavailable/invalid/indeterminate acknowledgment;
   next explicit command attempts a new port open. No blind replay occurs.
 - Audio failure/disconnect: discard the bounded buffer. The caller may submit
   a newly recorded utterance once reconnected, with a new session.
-- Weather failure in legacy stack: bounded-age cached results carry `stale=true`
-  and original acquisition timestamps; absent cache produces an error.
+- Weather failure: bounded-age cached results identify stale status, source time
+  and acquisition time; absent/too-old cache produces an error. Phase 4 raw HTTP
+  caches are memory-only; selected weather presentation state survives restart.
+- Database failure: persistent tools/snapshots become unavailable without resetting
+  damaged storage. The gateway continues; the scheduler periodically retries open.
+  Restore or repair explicitly. Unknown schema versions and failed migrations fail closed.
 
 Back up private environment files securely and use SQLite's backup API for the
 edge journal (or stop the edge before copying its database). Do not copy only a
@@ -140,11 +148,21 @@ live `.sqlite3` file and omit its WAL. Preserve permissions on restore. A restor
 old journal may lack newer command IDs; expired deadlines prevent old requests
 from executing, and operators must not blindly issue a fresh ID after an uncertain action.
 
+Back up the server database with `python scripts/backup_database.py --source
+data/server.sqlite3 --destination backups/server-2026-10-17.sqlite3` after creating
+the destination directory. It uses SQLite's online backup API and requires a new
+destination file. Stop the backend before restoring. Old backups can lack newer
+turn/action identities, so restoration does not authorize replaying uncertain
+requests. See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for storage, alarm and
+receipt-capacity policies. No audible alarm or offline edge fallback is implemented.
+
 For Zabbix, monitor `/health/live` locally and authenticated `/api/health` for edge
 online status, last heartbeat, serial metadata, error count and audio counters.
 Provider configuration is visible at `/api/agent/status`; it is not a live
-inference health probe. STT/TTS/HA remain unconfigured. Latency histograms, resource
-metrics, alarms and full readiness probes remain production-hardening work.
+inference health probe. Service diagnostics also report database/weather/home/search
+configuration and availability; they are not full upstream health probes. HA and
+search default to unconfigured; STT/TTS are pending. Latency histograms, resource
+metrics and full readiness probes remain production-hardening work.
 
 ## Phase 3 text development
 
@@ -173,3 +191,25 @@ provider-specific capabilities and exactly what remains unverified live. MCP is
 disabled by default. Enable brightness only deliberately via
 `EVE_SERVER_AGENT__ALLOW_MUTATIONS=true`; live hardware acceptance remains a
 separately authorized deployment task.
+
+## Phase 4 service development
+
+Use the same process and text API, with `EVE_SERVER_AGENT__ALLOW_MUTATIONS=true`
+for timer creation and other approved changes. Scoped clients additionally need
+their own mutation permission and explicit HA entity grants. Configure weather,
+native HA/media and optional SearXNG using `deploy/server/server.env.example` and
+[PHASE4_SERVICES.md](PHASE4_SERVICES.md). Missing optional integrations are not
+advertised as working tools. Keep credentials in private backend configuration.
+
+`GET /api/application/state` and `/api/application/events?after=0&limit=100` accept
+the existing operator or scoped agent Bearer credentials and reject browser
+Origins/device credentials. These are preparation for a future authenticated
+dashboard transport. Polling events uses durable revisions; reconnect from a
+snapshot if the server reports `snapshot_required`.
+
+Regenerate both contracts with `python scripts/export_protocol.py` and
+`python scripts/export_application.py`. The full Python suite includes fake-clock
+timer recovery/races, WAL backup/restore, weather/DST/stale cases, restricted HA/media,
+search security, private snapshots/events and all three real provider adapters
+using mocked HTTP. No live service is required. Retain `legacy/` until voice and
+dashboard consumers migrate in later phases.

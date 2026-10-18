@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 from pydantic import (
     AnyHttpUrl,
@@ -79,6 +80,120 @@ class AgentClient(PrivateConfig):
     token: Token
     device_ids: set[DeviceId] = Field(default_factory=set)
     allow_mutations: bool = False
+    home_entities: set[str] = Field(default_factory=set)
+
+
+class TimerSettings(PrivateConfig):
+    max_active: int = Field(default=128, ge=1, le=1024)
+    max_duration_seconds: int = Field(default=604800, ge=1, le=31536000)
+    reconcile_seconds: float = Field(default=30, ge=0.01, le=60)
+
+
+class WeatherSettings(PrivateConfig):
+    enabled: bool = True
+    location: str = Field(default="Frisco, Texas, USA", min_length=1, max_length=160)
+    latitude: float = Field(default=33.1507, ge=-90, le=90)
+    longitude: float = Field(default=-96.8236, ge=-180, le=180)
+    timezone: str = "America/Chicago"
+    units: Literal["imperial", "metric"] = "imperial"
+    forecast_url: str = "https://api.open-meteo.com/v1/forecast"
+    geocoding_url: str = "https://geocoding-api.open-meteo.com/v1/search"
+    current_ttl: float = Field(default=600, ge=1, le=3600)
+    daily_ttl: float = Field(default=3600, ge=1, le=10800)
+    weekly_ttl: float = Field(default=10800, ge=1, le=21600)
+    max_stale: float = Field(default=86400, ge=1, le=172800)
+    max_locations: int = Field(default=32, ge=1, le=128)
+    timeout: float = Field(default=8, ge=0.05, le=30)
+
+    @field_validator("timezone")
+    @classmethod
+    def zone(cls, value):
+        try:
+            ZoneInfo(value)
+        except (KeyError, ValueError):
+            raise ValueError("Unknown IANA timezone") from None
+        return value
+
+    @field_validator("forecast_url", "geocoding_url")
+    @classmethod
+    def endpoint(cls, value):
+        return http_endpoint(value, remote_tls=True)
+
+
+HomeAction = Literal[
+    "turn_on",
+    "turn_off",
+    "set_level",
+    "activate_scene",
+    "power",
+    "play",
+    "pause",
+    "stop",
+    "set_volume",
+    "volume_up",
+    "volume_down",
+    "select_source",
+    "send_remote_command",
+]
+
+
+class HomeEntity(PrivateConfig):
+    aliases: list[str] = Field(default_factory=list, max_length=32)
+    actions: set[HomeAction] = Field(default_factory=set)
+    remote_entity: str | None = Field(default=None, pattern=r"^remote\.[a-z0-9_]+$")
+    remote_commands: dict[
+        Literal["HOME", "BACK", "UP", "DOWN", "LEFT", "RIGHT", "SELECT", "PLAY", "PAUSE"], str
+    ] = Field(default_factory=dict)
+
+    @field_validator("remote_commands")
+    @classmethod
+    def commands(cls, value):
+        if any(
+            not command or len(command) > 64 or any(c.isspace() for c in command)
+            for command in value.values()
+        ):
+            raise ValueError("Remote commands must be fixed single button identifiers")
+        return value
+
+
+class HomeSettings(PrivateConfig):
+    url: str | None = Field(default=None, repr=False)
+    token: SecretStr | None = Field(default=None, repr=False)
+    allow_insecure_lan: bool = False
+    entities: dict[str, HomeEntity] = Field(default_factory=dict)
+    timeout: float = Field(default=5, ge=0.05, le=30)
+    discovery_ttl: float = Field(default=10, ge=0.01, le=300)
+
+    @model_validator(mode="after")
+    def policy(self):
+        import re
+
+        if self.url:
+            self.url = http_endpoint(self.url, remote_tls=not self.allow_insecure_lan)
+        if bool(self.url) != bool(self.token):
+            raise ValueError("Home Assistant requires both endpoint and token")
+        if len(self.entities) > 128 or any(
+            not re.fullmatch(
+                r"(?:light|switch|scene|media_player|sensor|binary_sensor)\.[a-z0-9_]+", entity
+            )
+            for entity in self.entities
+        ):
+            raise ValueError("Only explicitly approved non-sensitive entity domains are supported")
+        return self
+
+
+class SearchSettings(PrivateConfig):
+    url: str | None = Field(default=None, repr=False)
+    token: SecretStr | None = Field(default=None, repr=False)
+    allow_insecure_lan: bool = False
+    timeout: float = Field(default=8, ge=0.05, le=30)
+    max_results: int = Field(default=5, ge=1, le=10)
+
+    @model_validator(mode="after")
+    def endpoint(self):
+        if self.url:
+            self.url = http_endpoint(self.url, remote_tls=not self.allow_insecure_lan)
+        return self
 
 
 class MCPToolPolicy(PrivateConfig):
@@ -157,6 +272,14 @@ class ServerSettings(BaseSettings):
     agent_clients: dict[DeviceId, AgentClient] = Field(default_factory=dict, repr=False)
     mcp_servers: list[MCPServer] = Field(default_factory=list, repr=False)
     agent_prompt_suffix: str = Field(default="", max_length=4096, repr=False)
+    database_path: Path = Path("data/server.sqlite3")
+    database_busy_ms: int = Field(default=5000, ge=100, le=10000)
+    max_operations: int = Field(default=100000, ge=100, le=10000000)
+    event_retention: int = Field(default=10000, ge=100, le=100000)
+    timers: TimerSettings = Field(default_factory=TimerSettings)
+    weather: WeatherSettings = Field(default_factory=WeatherSettings)
+    home: HomeSettings = Field(default_factory=HomeSettings)
+    search: SearchSettings = Field(default_factory=SearchSettings)
 
     _ollama_endpoint = field_validator("ollama_base_url")(http_endpoint)
 
@@ -181,6 +304,8 @@ class ServerSettings(BaseSettings):
             values.append(validate_secret(client.token).get_secret_value())
             if not client.device_ids <= self.edge_tokens.keys():
                 raise ValueError("Agent client refers to an unknown device")
+            if not client.home_entities <= self.home.entities.keys():
+                raise ValueError("Agent client refers to an unapproved Home Assistant entity")
         if len(set(values)) != len(values):
             raise ValueError("Operator, device and agent-client credentials must all be different")
         if self.llm_provider != "ollama" and not self.allow_cloud:

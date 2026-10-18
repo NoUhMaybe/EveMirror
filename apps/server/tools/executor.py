@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass, field, replace
+from uuid import UUID, uuid5
 
 from apps.config import AgentLimits
 from apps.server.agent.messages import ToolCall
@@ -20,8 +21,9 @@ class ExecutionLedger:
 
 
 class ToolExecutor:
-    def __init__(self, registry: ToolRegistry, limits: AgentLimits):
+    def __init__(self, registry: ToolRegistry, limits: AgentLimits, redactor=None):
         self.registry, self.limits = registry, limits
+        self.redact = redactor or (lambda value: value)
 
     async def execute(self, call: ToolCall, context: ToolContext, ledger: ExecutionLedger):
         tool = self.registry.tools.get(call.name)
@@ -50,10 +52,21 @@ class ToolExecutor:
             if previous[0] != fingerprint:
                 return ToolResult.error("call_id_conflict", "Tool call ID was already used.")
             return replace(previous[1], replayed=True)
-        if tool.mutates and fingerprint in ledger.mutations:
+        if (
+            tool.mutates
+            and tool.operation_identity == "arguments"
+            and fingerprint in ledger.mutations
+        ):
             result = ledger.mutations[fingerprint]
             ledger.calls[call.id] = (fingerprint, result)
             return replace(result, replayed=True)
+        if tool.mutates:
+            operation_id = (
+                UUID(arguments["operation_id"])
+                if tool.operation_identity == "call" and arguments.get("operation_id")
+                else uuid5(context.turn_id, context.principal.id + ":" + call.name + ":" + call.id)
+            )
+            context = replace(context, operation_id=operation_id)
         uncertain = ToolResult.error(
             "indeterminate" if tool.mutates else "tool_cancelled",
             "Execution was interrupted; do not retry a state change automatically.",
@@ -66,6 +79,9 @@ class ToolExecutor:
                 result = await tool.handler(arguments, context)
             if not isinstance(result, ToolResult):
                 raise ValueError("invalid handler result")
+            result = replace(
+                result, data=self.redact(result.data), message=self.redact(result.message)
+            )
             if len(json_text(result.payload()).encode()) > self.limits.max_result_bytes:
                 result = ToolResult.error(
                     "result_too_large",

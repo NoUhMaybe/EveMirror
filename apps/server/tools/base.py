@@ -15,6 +15,7 @@ class Principal:
     id: str
     device_ids: frozenset[str]
     allow_mutations: bool = False
+    home_entities: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class ToolContext:
     session_id: UUID
     turn_id: UUID
     device_id: str | None = None
+    operation_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,8 @@ class ToolResult:
             result = {"status": self.status, "data": self.data}
         else:
             result = {"status": self.status, "error": {"code": self.code, "message": self.message}}
+            if self.data is not None:
+                result["error"]["details"] = self.data
         if self.replayed:
             result["replayed"] = True
         return result
@@ -64,3 +68,4 @@ class Tool:
     timeout: float = 10
     available: Callable[[], bool] = lambda: True
     argument_model: type[BaseModel] | None = None
+    operation_identity: Literal["arguments", "call"] = "arguments"

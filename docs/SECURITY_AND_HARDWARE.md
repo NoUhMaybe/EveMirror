@@ -5,10 +5,12 @@
 Operator and per-device credentials are distinct, required, redacted in settings,
 and never sent in browser bundles or URLs. The gateway exposes only typed
 brightness/display/status commands. It has no shell, filesystem, arbitrary serial,
-raw-network or Home Assistant action. The text agent supports explicitly selected
+or raw-network action. The text registry separately exposes restricted native
+Home Assistant/media actions only after configuration and explicit authorization.
+The text agent supports explicitly selected
 cloud inference only after a backend configuration opt-in. Device credentials cannot
 call operator HTTP endpoints. Browser Origins cannot connect to the edge endpoint.
-The Phase 3 tool executor additionally enforces argument schemas, device
+The tool executor additionally enforces argument schemas, device
 allowlists, mutation permissions, confirmation blocks and execution bounds.
 
 The edge alone owns serial. Use a stable, verified data interface. Auto-discovery
@@ -24,7 +26,11 @@ ID/fingerprint tombstones persist until the journal is removed, preventing older
 IDs from executing again with a newly issued deadline. No tokens, recordings or
 transcripts are stored by the edge. Text conversations and bounded response
 receipts are memory-only on the backend, expire after 60 idle seconds by default,
-and are isolated by authenticated principal/device. No transcript persistence was added.
+and are isolated by authenticated principal/device. Phase 4 persists native action
+receipts, hashed turn replay identities, timer names/alarms and scoped presentation
+state/events in SQLite. It does not intentionally store full transcripts or model
+response text. Treat the database and backups as private user data; replay records
+are retained until reviewed maintenance and bounded capacity fails closed.
 The legacy voice path still records WAVs and logs transcripts; use its privacy
 behavior knowingly until the new voice pipeline replaces it.
 
@@ -35,6 +41,30 @@ revocation UI, browser sessions and comprehensive deployment security review rem
 later work. There is no automatic provider fallback. Cloud inference requires
 explicit selection and opt-in; prompts/context/tool results then go to that
 provider. Ollama endpoints/models must actually use local inference when required.
+
+Native HA requires exact approved entities/actions, per-client entity grants,
+fresh capability discovery and the existing mutation opt-in. Arbitrary service
+names, locks/alarms, scripts, shell commands and broad conversation-agent access
+are not exposed. An action acknowledgment is distinguished from verified observed
+state. Timeouts leave a durable unknown outcome; retries do not resend it. Do not
+configure broad parallel HA MCP tools to bypass this boundary. Administrator-added
+MCP tools retain their separately reviewed generic policy and are not covered by
+the native HA journal. Use a dedicated least-privilege HA account/token, a verified
+TLS proxy or explicit trusted-LAN HTTP opt-in; unrelated MCP TLS rules remain intact.
+
+Weather and search use fixed administrator-configured endpoints, bounded requests,
+no redirects and no environment proxy inheritance. Search is read-only and optional;
+it filters unsafe result URLs and does not fetch result pages. Snippets are untrusted
+data and cannot grant tool permission. Configured secrets are redacted from tool
+results, final assistant text and application API output, including reflected
+credentials. Do not put secrets into user timer names or trust upstream content.
+
+Application snapshots/events enforce principal/device scopes and omit conversation
+history. Events have durable bounded retention; alarms remain in authoritative
+storage until acknowledged. The API rejects browser Origins and edge credentials;
+it is not a browser session mechanism. Never ship its operator/service tokens in
+React. Audible alarms, disconnected-edge fallback and browser transport remain
+later acceptance work. See [PHASE4_SERVICES.md](PHASE4_SERVICES.md).
 
 ## Manual hardware acceptance (all pending)
 

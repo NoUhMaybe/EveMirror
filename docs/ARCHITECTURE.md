@@ -8,15 +8,17 @@ flowchart LR
   Edge --> Feather[Feather M4: unchanged B / OK protocol]
   Server --> Providers[Replaceable Ollama / OpenAI / Anthropic adapters]
   Server --> Tools[Authorized tool registry / MCP / Home Assistant]
-  Server --> State[SQLite timers and settings]
+  Server --> State[SQLite timers, alarms, operations and scoped semantic state]
   Server --> Speech[STT / Piper synthesis]
   Speech -->|audio| Edge
   Server --> Dashboard[React in Chromium on Pi]
 ```
 
-Provider adapters, the tool registry/MCP client and temporary text sessions are
-implemented in Phase 3. Speech processing, timers/settings persistence and browser
-transport arrows still describe later work. The implementation status is authoritative.
+Provider adapters, the tool registry/MCP client and temporary text sessions were
+implemented in Phase 3. Phase 4 adds persistent timers/alarms, cached Open-Meteo,
+restricted native HA/media, optional SearXNG and scoped application snapshots/events.
+Speech processing and browser transport arrows still describe later work. The
+implementation status is authoritative; integrations were tested using fixtures.
 
 ## Incremental boundaries
 
@@ -25,10 +27,14 @@ transport arrows still describe later work. The implementation status is authori
   without depending on server connectivity or inference.
 - `apps/server`: authenticated gateway, connection/request correlation, bounded
   audio assembler and snapshot service; provider-independent text orchestration,
-  approved tools/MCP and ephemeral sessions. No serial, sounddevice, Torch or model
+  approved tools/MCP, persistent services and ephemeral conversation sessions. No serial, sounddevice, Torch or model
   weights are needed by the backend installation.
 - `packages/protocol`: strict Pydantic wire schemas; generated JSON Schema for
   future TypeScript generation. Protocol version changes require an explicit migration.
+- `apps/server/services`: one SQLite owner, timer reconciliation, HTTP integration
+  clients, operation receipts, scoped semantic state and durable event polling.
+- `packages/application`: generated version-1 snapshot/event schema;
+  `packages/weather`: pure normalization shared with retained legacy weather.
 - `apps/dashboard`: retained React application; move components in small tested steps.
 - `firmware/feather_m4`: retained firmware source and rollback baseline.
 - `legacy/agent`, `legacy/client`: working earlier voice pipeline, retained until replaced.
@@ -91,8 +97,17 @@ The text API is non-streaming and independent of audio. Mutation permission is
 explicit, sensitive/confirmation-required actions are blocked, and tool failures
 are returned as tool data instead of promoted into instructions. Only allowlisted
 MCP tools are registered; connections may recover before a new turn but failed
-actions are not automatically retried. Context and response receipts are bounded
-and memory-only; native hardware idempotency remains durable at the edge.
+actions are not automatically retried. Conversation context and response text are
+bounded and memory-only. Phase 4 adds durable turn replay markers and native
+timer/HA operation receipts. Timer changes and receipts commit together; external
+mutations reserve their identity before network I/O and retain unknown outcomes.
+Native hardware idempotency remains durable at the edge.
 
 See [PHASE3_AGENT.md](PHASE3_AGENT.md) for supported APIs, configuration, identity,
 limits, MCP lifecycle and exact limitations.
+
+See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for SQLite ownership/migrations,
+timer recovery, native HA/media allowlists, configured HTTP destinations, weather
+freshness and the separate authenticated application snapshot/event contract.
+The React dashboard retains its legacy relay until Phase 6; the semantic API does
+not introduce browser authentication or a public event stream.
