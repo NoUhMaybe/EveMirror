@@ -11,6 +11,7 @@ from apps.edge.runtime import EdgeRuntime
 from apps.server.agent.messages import LLMMessage, LLMResponse, ToolCall
 from apps.server.providers.base import ProviderError
 from packages.audio import SpeechError
+from packages.protocol import PlaybackStatus, VoiceStatus
 from tests.conftest import EDGE_TOKEN, OPERATOR_TOKEN
 from tests.service_fixtures import HomeFixture
 from tests.test_agent_api import FunctionProvider, final
@@ -24,6 +25,7 @@ from tests.voice_fixtures import (
     Detector,
     Microphone,
     Speaker,
+    capture_ready,
     say,
 )
 
@@ -164,19 +166,34 @@ async def test_disconnect_recovers_without_replaying_actions(settings, tmp_path,
             await say(runtime, microphone)
             await until(lambda: len(stt.calls) == 1)
             if stage == "speaking":
-                # Hold the next speech output after the acknowledgment chime.
-                await until(lambda: len(speaker.completed) >= 2)
+                # Driver completion precedes playback ACKs, turn cleanup and echo expiry.
+                await until(lambda: capture_ready(runtime, "FOLLOW_UP"))
+                assert len(speaker.completed) == 2 and hardware.commands == [35]
+                previous_playback = runtime.voice.player.active_request
                 speaker.block = True
-                # Hold a second response for the connection-loss window.
-                stt.texts.append("follow-up")
+                # Disconnect during the second response, not the first one's cleanup.
                 await say(runtime, microphone, wake=False)
-                await until(lambda: runtime.voice.player.busy)
+                await until(
+                    lambda: (
+                        len(stt.calls) == 2
+                        and runtime.voice.state == "SPEAKING"
+                        and runtime.voice.player.busy
+                        and runtime.voice.player.active_request != previous_playback
+                    )
+                )
             connection = app.state.gateway.connections["mirror-1"]
             await connection.socket.close(code=1012)
             await until(
                 lambda: (
                     app.state.gateway.connections.get("mirror-1") is not None
                     and app.state.gateway.connections["mirror-1"] is not connection
+                )
+            )
+            await until(
+                lambda: (
+                    not runtime.voice.player.busy
+                    and not runtime.voice.processing
+                    and not app.state.voice.tasks
                 )
             )
             assert not runtime.voice.player.busy and not app.state.voice.tasks
@@ -193,6 +210,106 @@ async def test_disconnect_recovers_without_replaying_actions(settings, tmp_path,
             assert hardware.commands == before
             assert not runtime._receipts and not app.state.voice.delivery.pending
         finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_followup_after_delayed_playback_receipt_and_status(settings, tmp_path, monkeypatch):
+    settings.speech.enabled = True
+    settings.voice_devices = {"mirror-1": VoiceGrant()}
+    stt, tts, microphone, speaker = (
+        STT("first question", "follow-up"),
+        TTS(),
+        Microphone(),
+        Speaker(),
+    )
+    completion, release_completion = asyncio.Event(), asyncio.Event()
+    followup, release_followup = asyncio.Event(), asyncio.Event()
+
+    async def model(messages, tools):
+        return final("A safe response.")
+
+    async with live_server(
+        settings,
+        llm_provider=FunctionProvider(model),
+        speech_stt=stt,
+        speech_tts=tts,
+    ) as (app, port):
+        runtime = EdgeRuntime(
+            edge_settings(tmp_path, port),
+            SimulatedHardware(),
+            audio_source=microphone,
+            detector=Detector(),
+            speaker=speaker,
+        )
+        send, handle = runtime._send, runtime.voice.handle
+
+        async def hold_completion(event):
+            if (
+                isinstance(event, PlaybackStatus)
+                and event.payload.status == "completed"
+                and not completion.is_set()
+            ):
+                completion.set()
+                await release_completion.wait()
+            await send(event)
+
+        async def hold_followup(event):
+            if (
+                isinstance(event, VoiceStatus)
+                and event.payload.state == "FOLLOW_UP"
+                and not followup.is_set()
+            ):
+                await until(lambda: not runtime.voice.player.busy)
+                followup.set()
+                await release_followup.wait()
+            await handle(event)
+
+        monkeypatch.setattr(runtime, "_send", hold_completion)
+        monkeypatch.setattr(runtime.voice, "handle", hold_followup)
+        task = asyncio.create_task(runtime.run())
+        try:
+            await asyncio.wait_for(runtime.connected.wait(), 5)
+            await say(runtime, microphone)
+            await asyncio.wait_for(completion.wait(), 5)
+            assert len(speaker.completed) == 2  # Chime and driver output, before its ACK.
+            assert runtime.voice.player.busy and runtime.voice.processing
+            assert not capture_ready(runtime, "FOLLOW_UP")
+            release_completion.set()
+            await asyncio.wait_for(followup.wait(), 5)
+            assert not runtime.voice.player.busy and runtime.voice.processing
+            assert not runtime.voice.turn_task.done()
+            assert not capture_ready(runtime, "FOLLOW_UP")
+
+            # Force the CI ordering: all audio arrives after driver completion but
+            # before FOLLOW_UP. Half-duplex capture must discard it, not upload it.
+            consumed, frames = asyncio.Event(), []
+            loop = asyncio.get_running_loop()
+            feed = runtime.voice.machine.feed
+
+            def observe_feed(pcm):
+                events = feed(pcm)
+                frames.append(events)
+                if len(frames) == 14:
+                    loop.call_soon_threadsafe(consumed.set)
+                return events
+
+            monkeypatch.setattr(runtime.voice.machine, "feed", observe_feed)
+            await microphone.emit(SPEECH_FRAME, 8)
+            await microphone.emit(SILENCE_FRAME, 6)
+            await asyncio.wait_for(consumed.wait(), 5)
+            assert frames == [[]] * 14 and len(stt.calls) == 1
+            release_followup.set()
+            await until(lambda: capture_ready(runtime, "FOLLOW_UP"))
+            conversation = app.state.voice.sessions["mirror-1"]
+            await say(runtime, microphone, wake=False)
+            await until(lambda: len(stt.calls) == 2 and capture_ready(runtime, "FOLLOW_UP"))
+            assert app.state.voice.sessions["mirror-1"] == conversation
+            assert len(speaker.completed) == 3  # Follow-up needs no second wake/chime.
+            assert not runtime._receipts and not app.state.voice.delivery.pending
+        finally:
+            release_completion.set()
+            release_followup.set()
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
 
@@ -233,7 +350,10 @@ async def test_software_mute_busy_wakes_programmatic_stop_and_followup_timeout(s
             await runtime.voice.set_muted(False)
             await say(runtime, microphone)
             await until(lambda: len(stt.calls) == 1)
-            await say(runtime, microphone, wake=False)
+            # Deliberately inject while busy; say() models a user waiting to speak.
+            await microphone.emit(SPEECH_FRAME, 8)
+            await microphone.emit(SILENCE_FRAME, 6)
+            await until(microphone.queue.empty)
             assert len(stt.calls) == 1  # busy frames cannot start another voice interaction
             await runtime.voice.cancel()
             await until(lambda: not app.state.voice.tasks)

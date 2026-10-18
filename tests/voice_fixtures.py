@@ -110,20 +110,40 @@ class TTS:
         pass
 
 
+def capture_ready(runtime, state):
+    """Driver completion alone does not finish the turn or the output echo tail."""
+    voice = runtime.voice
+    return (
+        voice.ready
+        and voice.source.available
+        and voice.machine is not None
+        and voice.state == state
+        and voice.machine.state == state
+        and not voice.machine.muted
+        and not voice.machine.busy
+        and not voice.muted
+        and not voice.processing
+        and not voice.playing
+        and not voice.player.busy
+        and not (voice.turn_task and not voice.turn_task.done())
+        and voice.clock() >= voice.machine.suppressed_until
+    )
+
+
 async def say(runtime, microphone, *, wake=True):
     from tests.test_edge_integration import until
 
     if wake:
-        remaining = max(
-            0,
-            runtime.voice.machine.last_wake
-            + runtime.settings.voice.wake_cooldown
-            - runtime.voice.clock(),
-            runtime.voice.machine.suppressed_until - runtime.voice.clock(),
+        await until(
+            lambda: (
+                (capture_ready(runtime, "IDLE") or capture_ready(runtime, "FOLLOW_UP"))
+                and runtime.voice.clock() - runtime.voice.machine.last_wake
+                >= runtime.settings.voice.wake_cooldown
+            )
         )
-        await asyncio.sleep(remaining + 0.01)
         await microphone.emit(WAKE_FRAME, 5)
-        await until(lambda: runtime.voice.machine.state == "LISTENING")
-    await asyncio.sleep(0.12)  # Configured software echo tail; no real acoustics.
+        await until(lambda: capture_ready(runtime, "LISTENING"))
+    else:
+        await until(lambda: capture_ready(runtime, "FOLLOW_UP"))
     await microphone.emit(SPEECH_FRAME, 8)
     await microphone.emit(SILENCE_FRAME, 6)

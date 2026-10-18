@@ -341,6 +341,16 @@ stop, privacy scopes, offline playback, lost receipts and restarts are exercised
 DSP tests use real SoXR/NumPy. Engine binding tests validate CPU/local-only parameters,
 model reuse, trusted assets, metadata, concurrency/timeouts and cancellation.
 
+Voice fixtures wait for matching controller/capture states, completion of the
+previous turn, inactive output and the actual configured wake/echo deadlines
+before emitting the next utterance. A speaker fixture's completed counter alone
+does not establish listening readiness. The disconnect recovery case verifies a
+second transcription and a new playback ID in SPEAKING before closing the socket.
+An event-gated regression delays playback completion receipts and FOLLOW_UP,
+checks that premature PCM is suppressed, and then completes a valid conversation
+follow-up. Deliberate busy/mute tests inject raw frames separately. No larger
+timeouts, flaky markers or production suppression changes are needed for this.
+
 With independently verified assets, run the real-engine smoke paths separately:
 
 ```powershell

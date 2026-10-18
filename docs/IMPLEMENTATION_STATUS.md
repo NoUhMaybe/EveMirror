@@ -28,7 +28,53 @@ is no provider fallback. HA/search and speech default to unconfigured/disabled.
 Negotiated voice routes PCM to local STT and the same agent; old transport-only
 peers keep their discard/injected consumer. React still uses the legacy relay.
 
-## Phase 5 delivery and actual validation
+## CI recovery synchronization follow-up
+
+The [Phase 5 Actions run](https://github.com/NoUhMaybe/EveMirror/actions/runs/39145728735)
+failed on Ubuntu 24.04.5 / Python 3.11.17: 270 passed and the speaking-disconnect
+case timed out waiting for playback. Matrix fail-fast cancelled the other three
+foundation jobs. The separate Starlette/httpx warning did not cause the failure.
+
+This was a test synchronization defect. The speaker fixture records completion
+inside its driver thread, before the playback task sends its completed receipt,
+the backend sends FOLLOW_UP, the edge finishes its old turn and the echo tail
+expires. The test could inject follow-up PCM in that gap; half-duplex capture
+correctly discarded it. A bare player-busy assertion could also observe the old
+response instead of the intended second response.
+
+Fixture input now waits for matching controller/capture states, a completed turn,
+inactive output and the configured wake/echo deadlines. The disconnect test also
+requires a second transcription and SPEAKING under a new playback request ID.
+The busy-input test injects frames directly. A new event-gated socket regression
+holds completion and FOLLOW_UP separately, verifies discarded premature frames,
+then verifies a valid follow-up reuses the conversation without another chime.
+Production runtime, echo/cancellation policy and hardware replay protection are
+unchanged. Foundation matrix `fail-fast: false` preserves every platform's results.
+
+Linux execution is unavailable locally: WSL is not installed and no Docker/Podman
+runtime is present. The original timeout was reproduced with an event-controlled
+FOLLOW_UP delay on Windows Python 3.11.9, where all 14 premature input frames were
+discarded. Unmodified normal runs passed 10/10 on Python 3.11.9 and 20/20 on
+Python 3.12.10; normal-run success alone did not establish correct synchronization.
+
+Validation after the repair:
+
+| Check | Actual result |
+|---|---|
+| Speaking-disconnect case plus event-gated regression | 20 consecutive runs of both tests on each Windows Python version: 80 test executions passed |
+| Full Python 3.11.9 suite, fresh pinned development environment | **272 passed**, including all original 271; one existing Starlette/httpx deprecation |
+| Full Python 3.12.10 suite, existing Phase 5 verification environment | **272 passed** |
+| Ruff lint / format; pip check in both environments | Passed; 102 files consistently formatted, no broken requirements |
+| Protocol/application/voice schema exports | Passed with no changes |
+| Original real loopback transport simulation, Python 3.11 and 3.12 | Passed: simulated 35% ACK and 16000 in-memory PCM bytes |
+| Frontend tests / typecheck / build | **4 passed** / passed / passed; existing 1.026 MB JS bundle warning |
+| Workflow YAML / matrix / scope | Valid; all four foundation jobs retained; production code and hardware paths unchanged |
+
+Updated Linux/hosted Actions results remain pending; no push or deployment was
+performed during this repair. No test was skipped, suppressed or given a larger
+timeout. The Starlette/httpx warning remains separate and unchanged.
+
+## Phase 5 delivery and actual validation (initial milestone, 7c13390)
 
 See [PHASE5_VOICE.md](PHASE5_VOICE.md) for setup, complete model manifests, voice
 identity/permissions, audio framing, state/caption contracts, offline policy,
