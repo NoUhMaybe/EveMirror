@@ -1,6 +1,6 @@
 """Expose the Feather backlight dimmer to the Eve agent's tool layer.
 
-The firmware (see "backlight Control/feather/code.py") already scales the
+The firmware (see "firmware/feather_m4/code.py") already scales the
 0-100% command range onto a 0-2V DAC output, so this module only needs to
 forward brightness commands over serial and remember the last value sent
 (the wire protocol has no "read current brightness" command).
@@ -10,8 +10,8 @@ import threading
 from pathlib import Path
 from typing import Dict, Optional
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-_FEATHER_MODULE_PATH = _REPO_ROOT / "backlight Control" / "pi" / "feather_backlight.py"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_FEATHER_MODULE_PATH = _REPO_ROOT / "tools" / "hardware" / "feather_backlight.py"
 
 _lock = threading.Lock()
 _backlight = None

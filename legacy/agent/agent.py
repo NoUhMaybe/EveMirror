@@ -4,7 +4,7 @@ Minimal local Eve agent loop using Ollama chat API.
 
 Usage:
     python agent.py --text "What's the weather?"
-    python agent.py --audio ..\\mirror_client\\recordings\\command_20260819_180045.wav
+    python agent.py --audio ..\\client\\recordings\\command_20260819_180045.wav
     python agent.py
 
 Interactive commands:
@@ -26,8 +26,8 @@ from tts_local import LocalTTS, LocalTTSConfig
 
 DEFAULT_MODEL = "hf.co/mradermacher/Huihui-Qwen3.5-9B-abliterated-GGUF:Q5_K_M"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_TTS_MODEL = _REPO_ROOT / "wake_word_training" / "models" / "en_US-libritts_r-medium.onnx"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TTS_MODEL = _REPO_ROOT / "training" / "wake_word" / "models" / "en_US-libritts_r-medium.onnx"
 DEFAULT_REQUEST_LOCATION = "Frisco, Texas, USA"
 DEFAULT_REQUEST_TIMEZONE = "America/Chicago"
 

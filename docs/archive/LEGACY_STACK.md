@@ -1,9 +1,11 @@
 # Eve Smart Mirror AI Stack
 
-> Historical voice-stack instructions and design notes. The current distributed
-> development entry point is [README.md](README.md), with verified progress in
-> [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md). Older hardware,
-> phase statuses and endpoint examples below are not deployment validation.
+> Archived voice-stack instructions and design notes. Paths below describe the
+> original checkout. Use the [current README](../../README.md),
+> [legacy startup instructions](../../legacy/README.md), and
+> [implementation status](../IMPLEMENTATION_STATUS.md). Older hardware, phase
+> statuses and endpoint examples below are not deployment validation. The old
+> `mcp_servers/test_server.py` placeholder has been removed; it was never MCP.
 
 ## Overview
 

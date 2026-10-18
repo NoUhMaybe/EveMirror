@@ -1,96 +1,99 @@
-# Generated audio clips
+# Python environments, dependencies and caches
+.venv*/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.hypothesis/
+build/
+dist/
+
+# JavaScript dependencies, build caches and test reports
+node_modules/
+.vite/
+.npm/
+*.tsbuildinfo
+apps/dashboard/vite.config.js
+apps/dashboard/vite.config.d.ts
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+playwright-report/
+test-results/
+npm-debug.log*
+yarn-error.log*
+
+# Private configuration and credentials (keep distributable examples)
+.env
+.env.*
+*.env
+!.env.example
+!*.env.example
+/secrets/
+*.pem
+*.key
+
+# Local runtime state, models and recordings
+/data/
+/.assets/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+legacy/agent/weather_cache.json
+legacy/agent/voice_auditions/
+legacy/client/recordings/
 *.wav
 *.mp3
 *.ogg
 *.flac
 *.opus
 
-# Downloaded datasets
-wake_word_training/audioset/
-wake_word_training/audioset_16k/
-wake_word_training/fma/
-wake_word_training/MIT_environmental_impulse_responses/
-wake_word_training/mit_rirs/
+# Wake-word datasets, third-party checkouts and local training environment
+/training/wake_word/audioset/
+/training/wake_word/audioset_16k/
+/training/wake_word/fma/
+/training/wake_word/MIT_environmental_impulse_responses/
+/training/wake_word/mit_rirs/
+/training/wake_word/openwakeword/
+/training/wake_word/piper-sample-generator/
+/training/wake_word/piper_venv/
+/training/wake_word/piper-phonemize_win/
+/training/wake_word/piper-phonemize_windows.zip
+/training/wake_word/models/
+/training/wake_word/my_custom_model/
+/training/wake_word/runs/
+/training/wake_word/clips/
+/training/wake_word/my_model.yaml
+/training/wake_word/_texts_*.txt
+/training/wake_word/**/*.npy
+/training/wake_word/**/*.npz
+/training/wake_word/**/*.onnx
+/training/wake_word/**/*.tflite
+/training/wake_word/**/*.pb
+/training/wake_word/**/*.pdb
+/training/wake_word/**/*.bin
+/training/wake_word/**/*.ckpt
+/training/wake_word/**/*.h5
+/training/wake_word/**/*.pt
+/training/wake_word/**/*.pth
 
-# Vendored wake word training dependencies
-wake_word_training/openwakeword/
-wake_word_training/piper-sample-generator/
-
-# Downloaded pre-computed feature files
-wake_word_training/openwakeword_features_ACAV100M_2000_hrs_16bit.npy
-wake_word_training/validation_set_features.npy
-
-# Downloaded voice model
-wake_word_training/models/
-
-# Training outputs
-wake_word_training/my_custom_model/
-wake_word_training/runs/
-wake_word_training/clips/
-
-# Temp text files written before each clip generation batch
-wake_word_training/_texts_*.txt
-
-# Python virtual environment
-wake_word_training/piper_venv/
-
-# Downloaded binary dependency
-wake_word_training/piper-phonemize_win/
-wake_word_training/piper-phonemize_windows.zip
-
-# Local Python/cache artifacts inside wake word training
-wake_word_training/**/__pycache__/
-wake_word_training/**/*.pyc
-wake_word_training/.pytest_cache/
-wake_word_training/.mypy_cache/
-wake_word_training/.ruff_cache/
-
-# Nonessential generated training artifacts
-wake_word_training/**/*.npy
-wake_word_training/**/*.npz
-wake_word_training/**/*.onnx
-wake_word_training/**/*.tflite
-wake_word_training/**/*.pb
-wake_word_training/**/*.pdb
-wake_word_training/**/*.bin
-wake_word_training/**/*.ckpt
-wake_word_training/**/*.h5
-wake_word_training/**/*.pt
-wake_word_training/**/*.pth
-wake_word_training/**/*.log
-
-# Recorded command audio
-mirror_client/recordings/
-
-# Runtime dependencies and generated outputs (keep lockfiles)
-.venv/
-.venv-*/
-**/node_modules/
-**/dist/
-**/__pycache__/
-*.py[cod]
-*.tsbuildinfo
-dashboard/vite.config.js
-dashboard/vite.config.d.ts
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-*.egg-info/
-build/
-.coverage
-htmlcov/
-
-# Private configuration and local state
-.env
-.env.*
-!.env.example
-!*.env.example
-*.sqlite3
-*.sqlite3-*
-data/
-.assets/
-deploy/server/server.env
-deploy/edge/edge.env
-eve_agent/weather_cache.json
-eve_agent/weather_cache.json.tmp
+# Logs, temporary files and OS/editor leftovers
 *.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -22,11 +22,11 @@ from typing import List, Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-LISTEN_PATH = ROOT_DIR / "mirror_client" / "listen.py"
-VOICE_LOOP_PATH = ROOT_DIR / "eve_agent" / "voice_loop.py"
-EVENT_SERVER_PATH = ROOT_DIR / "eve_agent" / "dashboard_event_server.py"
-RECORDINGS_DIR = ROOT_DIR / "mirror_client" / "recordings"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+LISTEN_PATH = ROOT_DIR / "legacy" / "client" / "listen.py"
+VOICE_LOOP_PATH = ROOT_DIR / "legacy" / "agent" / "voice_loop.py"
+EVENT_SERVER_PATH = ROOT_DIR / "legacy" / "agent" / "dashboard_event_server.py"
+RECORDINGS_DIR = ROOT_DIR / "legacy" / "client" / "recordings"
 OLLAMA_HEALTH_URL = "http://127.0.0.1:11434/api/tags"
 
 RESTART_DELAY_S = 3

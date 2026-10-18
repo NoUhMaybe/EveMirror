@@ -17,9 +17,9 @@ import numpy as np
 import sounddevice as sd
 from piper import PiperVoice, SynthesisConfig
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MODEL = REPO_ROOT / "wake_word_training" / "models" / "en_US-libritts_r-medium.onnx"
-DEFAULT_OUT_DIR = REPO_ROOT / "eve_agent" / "voice_auditions"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_MODEL = REPO_ROOT / "training" / "wake_word" / "models" / "en_US-libritts_r-medium.onnx"
+DEFAULT_OUT_DIR = REPO_ROOT / "legacy" / "agent" / "voice_auditions"
 DEFAULT_TEXT = "Hi, I'm Eve. Nice to meet you. How can I help you today?"
 
 
@@ -106,7 +106,7 @@ def main() -> None:
             sd.play(audio.astype(np.float32) / 32767.0, samplerate=sr, blocking=True)
 
     print("\nDone. Choose your preferred speaker ID and run:")
-    print("  python mirror_client/runtime.py --tts-speaker <ID>")
+    print("  python legacy/client/runtime.py --tts-speaker <ID>")
 
 
 if __name__ == "__main__":

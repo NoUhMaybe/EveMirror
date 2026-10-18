@@ -2,6 +2,11 @@
 
 Custom [openWakeWord](https://github.com/dscripka/openWakeWord) model for the "hey eve" wake word, trained locally on an NVIDIA GPU.
 
+This is the retained training pipeline; the historical GPU/dependency setup below
+was not rerun during repository cleanup. Commands in this guide run from
+`training/wake_word/`. Models, datasets, environments and generated configurations
+are local ignored artifacts. See [repository layout](../../docs/REPOSITORY_LAYOUT.md).
+
 ---
 
 ## Requirements
@@ -44,7 +49,7 @@ Each run:
 - **Skips** clip generation if 30,000 clips already exist
 - **Re-augments** if feature `.npy` files are missing
 - **Saves to a versioned folder**: `runs/YYYYMMDD_HHMM_neg{penalty}/`
-- **Copies** the finished model to the Eve project automatically
+- Exports the finished model to `my_custom_model/` for the legacy listener.
 
 ---
 
@@ -74,10 +79,15 @@ runs/
     hey_eve_float16.tflite
 ```
 
-The latest model is also automatically copied to:
+The latest model is also automatically copied to the ignored directory:
 ```
-C:\Users\Work\Documents\Eve\.venv\Lib\site-packages\openwakeword\resources\models\
+training/wake_word/my_custom_model/
 ```
+
+`EVE_TRAINING_WORK_DIR` can point to an external data workspace;
+`EVE_WAKE_MODEL_DIR` can override the model export directory. Use absolute paths
+for overrides. The training script no longer writes into another project's Python
+installation. It locates `generate_clips_piper.py` beside its own source.
 
 ---
 
@@ -99,10 +109,8 @@ THRESHOLD = 0.3   # lower = more sensitive, higher = fewer false positives
 ## Using in the Eve project
 
 ```powershell
-cd C:\Users\Work\Documents\Eve
-.\.venv\Scripts\python.exe openWakeWord\examples\detect_from_microphone.py `
-    --model_path "hey_eve" `
-    --inference_framework onnx
+# From the EveMirror repository root, using the existing voice environment:
+.\.venv\Scripts\python.exe legacy/client/listen.py
 ```
 
 ---
@@ -110,7 +118,7 @@ cd C:\Users\Work\Documents\Eve
 ## Directory structure
 
 ```
-hey_eve_training/
+training/wake_word/
   train.py                    ← main training script
   generate_clips_piper.py     ← TTS clip generator (called by train.py)
   test_wakeword.py            ← live microphone test

@@ -1,7 +1,7 @@
 # Feather Backlight Control
 
 Historical hardware verification notes; this modernization session has not
-retested or flashed the board. See [current verification procedure](../docs/SECURITY_AND_HARDWARE.md).
+retested or flashed the board. See [current verification procedure](../../docs/SECURITY_AND_HARDWARE.md).
 The new edge runtime must be the sole serial owner when enabled; stop legacy
 controllers before testing it.
 
@@ -16,10 +16,10 @@ over the data serial port.
 ## Repository layout
 
 ```
-feather/
+firmware/feather_m4/
   boot.py               # enables the second ("data") USB CDC serial port
   code.py                # reads brightness commands, drives the A0 DAC
-pi/
+tools/hardware/
   feather_backlight.py   # Pi-side client: FeatherBacklight class + CLI
 ```
 
@@ -45,7 +45,7 @@ pi/
 
 ### 2. Deploy the firmware files
 
-1. Copy [feather/boot.py](feather/boot.py) and [feather/code.py](feather/code.py)
+1. Copy [boot.py](boot.py) and [code.py](code.py)
    to the root of the `CIRCUITPY` drive.
 2. Power-cycle the board (unplug/replug, or a single press of reset) —
    `boot.py` only runs on a hard boot, not on a `code.py` save/auto-reload.
@@ -70,11 +70,11 @@ and validate the 2 V limit using the hardware verification procedure.
 pip install pyserial
 ```
 
-Use [pi/feather_backlight.py](pi/feather_backlight.py) directly:
+From the repository root, use [the standalone client](../../tools/hardware/feather_backlight.py):
 
 ```bash
-python3 pi/feather_backlight.py 75   # 75% brightness
-python3 pi/feather_backlight.py 0    # backlight off
+python3 tools/hardware/feather_backlight.py 75   # 75% brightness
+python3 tools/hardware/feather_backlight.py 0    # backlight off
 ```
 
 Or import it in your own code:
@@ -119,7 +119,7 @@ Newline-terminated ASCII commands over the data serial port:
 On the Feather, each `B<pct>` command eases the DAC from its current level to
 the new target over 1.5s (ease-out: fast at first, slowing into the target)
 instead of snapping instantly — see `FADE_DURATION_S`/`update_fade()` in
-[feather/code.py](feather/code.py). Sending a new `B<pct>` mid-fade smoothly
+[code.py](code.py). Sending a new `B<pct>` mid-fade smoothly
 retargets from the DAC's current in-flight value, no jump.
 
 ## Troubleshooting

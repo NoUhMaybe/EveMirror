@@ -27,7 +27,7 @@ credentials, connects a simulated Feather, sends a brightness command and upload
 an in-memory audio fixture. It requires no hardware, models or live services.
 
 ```powershell
-cd dashboard
+cd apps/dashboard
 npm.cmd ci
 npm.cmd test
 npm.cmd run typecheck
@@ -45,8 +45,26 @@ dashboard integration are still pending. A successful build is not a Pi FPS test
 - [Protocol and failure semantics](docs/PROTOCOL.md)
 - [Setup, recovery and configuration](docs/DEVELOPMENT.md)
 - [Security, privacy and hardware verification](docs/SECURITY_AND_HARDWARE.md)
-- [Legacy voice startup and historical design](README)
+- [Repository layout and moved paths](docs/REPOSITORY_LAYOUT.md)
+- [Legacy voice startup](legacy/README.md)
+- [Historical design](docs/archive/LEGACY_STACK.md)
 
 Do not run the legacy serial controller and new edge controller simultaneously.
 The known-working Feather firmware is unchanged. Nothing in this branch deploys,
 flashes or changes connected devices automatically.
+
+## Repository layout
+
+```text
+apps/                Edge runtime, backend and React dashboard
+packages/            Shared protocol
+firmware/feather_m4/  Preserved CircuitPython firmware
+legacy/              Working older voice agent and microphone client
+training/wake_word/   Wake-word training tools and ignored local assets
+tools/hardware/      Standalone hardware diagnostic client
+deploy/              Server and edge deployment examples
+requirements/        Pinned foundation dependencies
+scripts/             Schema, asset verification and development simulation
+tests/               Backend and integration tests
+docs/                Current documentation and historical archives
+```

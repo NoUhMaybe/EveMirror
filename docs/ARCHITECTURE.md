@@ -27,8 +27,11 @@ capabilities. The implementation status is authoritative.
   dependency in the default backend installation.
 - `packages/protocol`: strict Pydantic wire schemas; generated JSON Schema for
   future TypeScript generation. Protocol version changes require an explicit migration.
-- `dashboard`: retained React application; move components in small tested steps.
-- `backlight Control/feather`: retained firmware source and rollback baseline.
+- `apps/dashboard`: retained React application; move components in small tested steps.
+- `firmware/feather_m4`: retained firmware source and rollback baseline.
+- `legacy/agent`, `legacy/client`: working earlier voice pipeline, retained until replaced.
+- `training/wake_word`: training scripts and ignored local models/datasets.
+- `tools/hardware`: standalone serial diagnostic client used by the legacy bridge.
 - `deploy`: examples only. Do not automatically enable units or contact live hosts.
 
 ## Phase boundaries

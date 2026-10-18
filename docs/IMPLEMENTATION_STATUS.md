@@ -23,6 +23,25 @@ Its default audio consumer discards PCM after receipt; upload success is not a
 voice interaction. The browser still uses the legacy loopback event server and
 does not consume the new gateway's snapshot.
 
+## Repository cleanup follow-up
+
+Source now follows [REPOSITORY_LAYOUT.md](REPOSITORY_LAYOUT.md). The dashboard is
+under `apps/dashboard`, firmware under `firmware/feather_m4`, old voice components
+under `legacy/`, and training tools/assets under `training/wake_word`. CI, runtime
+paths, package discovery and documentation were updated. Historical docs moved to
+`docs/archive/`. The unused MCP scaffold, `.gitkeep` markers and generated training
+config were deleted; Drei was removed from the frontend dependencies. Existing local
+models, datasets, private env files, recordings and root virtual environments were
+preserved. Firmware and standalone serial-client bytes remain unchanged.
+
+Cleanup validation passed: 64 Python tests, four frontend tests, lint/format,
+clean frontend reinstall/typecheck/build and the loopback simulation. Legacy CLI
+help/import checks, 16 relocated Python parses, package discovery and current
+documentation links passed. Ignore checks confirmed 22 generated/private paths
+are excluded and nine source/lock/template paths remain trackable. Firmware and
+standalone serial-client SHA-256 values match their pre-move values. Training,
+microphone capture and physical hardware control were not launched.
+
 ## Changed files and ownership
 
 - `apps/config.py`: backend/edge settings, distinct credentials, TLS-origin
@@ -37,13 +56,13 @@ does not consume the new gateway's snapshot.
   loopback simulation. `requirements/*.lock`, `pyproject.toml` and CI define the
   isolated foundation environment. `deploy/` contains examples with invalid token
   placeholders; `README.md` and `docs/` describe setup and actual capabilities.
-- `eve_agent/tooling.py`, `dashboard_event_server.py`: retained weather API with
+- `legacy/agent/tooling.py`, `dashboard_event_server.py`: retained weather API with
   separate daily/weekly TTLs, no unconditional unrelated-chat fetch, no invented
   hours, null measurements, bounded stale fallback and acquisition/source metadata.
-- `dashboard/src/state/weather.ts`, `App.tsx`, `styles.css`, package/TypeScript
-  config and `dashboard/tests/`: actual forecasts/highs/lows, missing-data handling,
+- `apps/dashboard/src/state/weather.ts`, `App.tsx`, `styles.css`, package/TypeScript
+  config and `apps/dashboard/tests/`: actual forecasts/highs/lows, missing-data handling,
   labeled cached/demo values, source-local hours and repaired typecheck/build.
-- `backlight Control/README.md`: corrects the direction-of-calibration explanation.
+- `firmware/feather_m4/README.md`: corrects the direction-of-calibration explanation.
   Firmware, voltage scaling, pins, ENA and fades are unchanged.
 - Generated dependencies/builds/configs/bytecode and local env/weather cache were
   removed **from the index only**, retained locally and ignored. No history rewrite.
@@ -66,7 +85,7 @@ Windows; Python 3.12.10; Node 24.11.1. The old `.venv` was retained; new
 | `npm.cmd run build` | Passed with source Vite config/runner loader |
 | Compose and CI YAML parsing | Passed; no services started |
 | `git diff --check` | Passed |
-| Original Feather firmware/client and wake/supervisor source comparison | Unchanged |
+| Feather firmware and standalone serial-client bytes | Unchanged; legacy runtime path references updated |
 
 Tests cover strict protocol/config, token isolation/redaction, auth failures,
 command/ACK correlation/timeouts, exact/partial/malformed serial writes and ACKs,
@@ -77,9 +96,9 @@ weather cache/stale/missing-data behavior and frontend normalization.
 
 No numerical coverage percentage is claimed. One upstream Starlette TestClient
 deprecation references httpx 0.28.1. Vite reports the existing large bundle:
-roughly 1.026 MB JavaScript / 284 KB gzip. Clean npm reinstall reports the existing
-Drei mesh-BVH dependency deprecation; Drei appears unused in application imports.
-Resolve the dependency and measure rendering in phase 6. No visual/FPS test ran.
+roughly 1.026 MB JavaScript / 284 KB gzip. The unused Drei dependency and its mesh-BVH deprecation were removed during
+cleanup; the frontend lock now resolves 48 packages instead of 102. Measure
+rendering in phase 6. No visual/FPS test ran.
 
 Docker CLI/systemd are unavailable here. Linux/Pi installation, Python 3.11 and
 hosted Actions remain unverified. CI targets Windows/Linux Python 3.11/3.12 and

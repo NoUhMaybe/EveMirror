@@ -14,4 +14,8 @@ data
 **/*.sqlite3*
 **/*.wav
 **/*.onnx
-wake_word_training
+training
+legacy
+firmware
+tools
+apps/dashboard

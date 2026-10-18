@@ -3,6 +3,10 @@
 Inspected clean `main` at `91e602c7d6c03583fef04c4ef5290848bd6ec3d0`.
 Development branch: `codex/distributed-foundation`. No pre-existing edits.
 
+Paths below describe the initial checkout. The subsequent cleanup moves source
+into the [current repository layout](REPOSITORY_LAYOUT.md); keep this audit as a
+record of the original baseline.
+
 ## Working source to retain
 
 - `mirror_client/listen.py`: 16 kHz openWakeWord inference, custom ONNX asset,

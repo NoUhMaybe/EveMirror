@@ -17,7 +17,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-WORK_DIR = r"C:\Users\Work\Downloads\hey_eve_training"
+WORK_DIR = os.environ.get("EVE_TRAINING_WORK_DIR", str(Path(__file__).resolve().parent))
 TARGET_WORD = "hey eve"
 
 # Piper ONNX voice model (multi-speaker, 904 speakers, works with piper-tts on Python 3.11)
@@ -233,7 +233,7 @@ def phase2_train():
         yaml.dump(config, f)
 
     # ── Generate clips using piper-tts (no piper-phonemize needed) ────────
-    gen_script = os.path.join(WORK_DIR, "generate_clips_piper.py")
+    gen_script = str(Path(__file__).resolve().with_name("generate_clips_piper.py"))
     out_base   = os.path.join(clips_dir, model_name)  # shared clips location
 
     # Generate adversarial texts without the pronouncing library (pkg_resources issues)
@@ -317,13 +317,16 @@ def phase2_train():
     print(f"  TFLite: {run_dir}\\{model_name}.tflite")
     print("=" * 60)
 
-    # Copy to Eve project so it's available as a named model
-    eve_models = r"C:\Users\Work\Documents\Eve\.venv\Lib\site-packages\openwakeword\resources\models"
-    if os.path.exists(eve_models):
-        import shutil as _shutil
-        _shutil.copy2(os.path.join(run_dir, f"{model_name}.onnx"), eve_models)
-        _shutil.copy2(os.path.join(run_dir, f"{model_name}.tflite"), eve_models)
-        print(f"  Copied models to Eve project: {eve_models}")
+    # Export into the repository's ignored assets, never another installation's site-packages.
+    eve_models = Path(os.environ.get(
+        "EVE_WAKE_MODEL_DIR", str(Path(__file__).resolve().parent / "my_custom_model"),
+    ))
+    eve_models.mkdir(parents=True, exist_ok=True)
+    for extension in ("onnx", "tflite"):
+        artifact = Path(run_dir) / f"{model_name}.{extension}"
+        if artifact.exists():
+            shutil.copy2(artifact, eve_models)
+    print(f"  Copied models to: {eve_models}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

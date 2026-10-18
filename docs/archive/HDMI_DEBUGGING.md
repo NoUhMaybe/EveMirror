@@ -1,5 +1,9 @@
 # Handoff Notes — HDMI "No Signal" Debugging (read this first)
 
+> Historical debugging record. Addresses, hardware state and paths below may be
+> outdated. See the [current layout](../REPOSITORY_LAYOUT.md) and
+> [hardware verification procedure](../SECURITY_AND_HARDWARE.md) before deployment.
+
 Written so a fresh Copilot Chat session (e.g. on another machine) can pick up
 exactly where this left off. Pi is accessed via `ssh noah@192.168.0.40`
 (ethernet) or `.41` (wifi, IP may vary by DHCP lease).

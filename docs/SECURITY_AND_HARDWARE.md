@@ -37,7 +37,7 @@ These procedures were not performed in this development session.
 
 1. Confirm Pi model/RAM, OS release, audio device names, serial permissions and
    stable Feather data port. Confirm HDMI image/orientation independently of the
-   historical HANDOFF diagnosis; preserve a working HDMI configuration.
+   [historical HDMI diagnosis](archive/HDMI_DEBUGGING.md); preserve a working HDMI configuration.
 2. Back up deployed `boot.py` and `code.py`; compare them to repository sources.
    Do not flash anything for this milestone. The new bridge uses the existing protocol.
 3. Stop the legacy runtime/controller before starting the new serial owner. Use

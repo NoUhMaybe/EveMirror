@@ -23,6 +23,8 @@ eve-edge = "apps.edge.runtime:main"
 
 [tool.setuptools.packages.find]
 include = ["apps*", "packages*"]
+exclude = ["apps.dashboard*"]
+namespaces = false
 
 [tool.setuptools.package-data]
 "packages.protocol" = ["schema.json"]

@@ -10,7 +10,7 @@ import requests
 
 @pytest.fixture
 def weather(monkeypatch, tmp_path):
-    monkeypatch.syspath_prepend(str(Path("eve_agent").resolve()))
+    monkeypatch.syspath_prepend(str(Path("legacy/agent").resolve()))
     module = importlib.import_module("tooling")
     monkeypatch.setattr(module, "_WEATHER_CACHE", {})
     monkeypatch.setattr(module, "CACHE_FILE_PATH", str(tmp_path / "weather.json"))

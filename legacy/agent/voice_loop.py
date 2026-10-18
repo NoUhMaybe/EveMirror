@@ -2,14 +2,14 @@
 Single-command voice loop runner.
 
 Default behavior:
-- picks the latest WAV in mirror_client/recordings
+- picks the latest WAV in legacy/client/recordings
 - transcribes it
 - sends text through Eve agent routing + Ollama
 - prints final Eve response
 
 Usage:
     python voice_loop.py
-    python voice_loop.py --audio ..\\mirror_client\\recordings\\command_20260819_180045.wav
+    python voice_loop.py --audio ..\\client\\recordings\\command_20260819_180045.wav
     python voice_loop.py --watch
 """
 
@@ -32,9 +32,9 @@ from tooling import should_enable_thinking
 from tts_local import LocalTTS, LocalTTSConfig
 from transcribe import load_model, transcribe
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_RECORDINGS_DIR = _REPO_ROOT / "mirror_client" / "recordings"
-DEFAULT_TTS_MODEL = _REPO_ROOT / "wake_word_training" / "models" / "en_US-libritts_r-medium.onnx"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_RECORDINGS_DIR = _REPO_ROOT / "legacy" / "client" / "recordings"
+DEFAULT_TTS_MODEL = _REPO_ROOT / "training" / "wake_word" / "models" / "en_US-libritts_r-medium.onnx"
 
 
 def get_latest_wav(recordings_dir: Path) -> Optional[Path]:

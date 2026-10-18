@@ -4,7 +4,7 @@ Transcribes audio using faster-whisper (Whisper large-v3-turbo).
 
 Usage:
     python transcribe.py path/to/command.wav
-    python transcribe.py --watch       # watches mirror_client/recordings/ for new files
+    python transcribe.py --watch       # watches legacy/client/recordings/ for new files
 """
 
 import argparse
@@ -18,8 +18,8 @@ MODEL_SIZE   = "large-v3-turbo"
 DEVICE       = "cuda"
 COMPUTE_TYPE = "float16"
 
-_REPO_ROOT     = Path(__file__).resolve().parent.parent
-RECORDINGS_DIR = _REPO_ROOT / "mirror_client" / "recordings"
+_REPO_ROOT     = Path(__file__).resolve().parents[2]
+RECORDINGS_DIR = _REPO_ROOT / "legacy" / "client" / "recordings"
 
 
 def configure_windows_cuda_dll_paths() -> None:

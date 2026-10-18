@@ -29,9 +29,9 @@ SILENCE_MS   = 1500
 MAX_RECORD_S = 15
 OWW_COOLDOWN = 3.0    # seconds to suppress OWW after a wake event
 
-_REPO_ROOT     = Path(__file__).resolve().parent.parent
-MODEL_PATH     = _REPO_ROOT / "wake_word_training" / "my_custom_model" / "hey_eve.onnx"
-OWW_MODELS_DIR = _REPO_ROOT / "wake_word_training" / "models" / "openwakeword"
+_REPO_ROOT     = Path(__file__).resolve().parents[2]
+MODEL_PATH     = _REPO_ROOT / "training" / "wake_word" / "my_custom_model" / "hey_eve.onnx"
+OWW_MODELS_DIR = _REPO_ROOT / "training" / "wake_word" / "models" / "openwakeword"
 MELSPEC_PATH   = OWW_MODELS_DIR / "melspectrogram.onnx"
 EMBED_PATH     = OWW_MODELS_DIR / "embedding_model.onnx"
 RECORDINGS_DIR = Path(__file__).resolve().parent / "recordings"

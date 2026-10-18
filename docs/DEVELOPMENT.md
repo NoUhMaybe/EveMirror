@@ -15,7 +15,7 @@ python3.12 -m venv .venv-dev
 .venv-dev/bin/python -m ruff format --check apps packages scripts tests
 .venv-dev/bin/python -m pytest -q
 .venv-dev/bin/python scripts/simulate.py
-cd dashboard
+cd apps/dashboard
 npm ci
 npm test
 npm run typecheck
@@ -30,7 +30,7 @@ The `requirements/*.lock` files pin the tested foundation dependency versions.
 FastAPI/Uvicorn; `dev` adds test/lint/legacy-weather HTTP dependencies. Native
 audio, Torch, transcription and Piper packages are deliberately outside these
 foundation environments. Linux/Pi wheels and deployment remain CI/hardware checks.
-The old unpinned `mirror_client/requirements.txt` and `eve_agent/requirements.txt`
+The old unpinned `legacy/client/requirements.txt` and `legacy/agent/requirements.txt`
 still describe the legacy environment, including its NVIDIA dependencies.
 
 To update dependencies, resolve in a new environment, run all relevant checks,
@@ -114,7 +114,7 @@ Run `python scripts/verify_assets.py --manifest path/to/private-manifest.json --
 Missing, empty, corrupted files and paths outside the artifact directory fail
 verification. Hashing an untrusted download and then accepting that same hash is
 not authenticity verification. Legacy scripts still use their historical model
-paths/download behavior; wiring verified discovery into the new wake runtime is
+paths under `training/wake_word/` and their existing download behavior; wiring verified discovery into the new wake runtime is
 an explicit phase-5 task. Do not commit models or training datasets during migration.
 
 ## Recovery and backup
