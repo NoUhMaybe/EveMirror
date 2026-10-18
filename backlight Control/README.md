@@ -1,5 +1,10 @@
 # Feather Backlight Control
 
+Historical hardware verification notes; this modernization session has not
+retested or flashed the board. See [current verification procedure](../docs/SECURITY_AND_HARDWARE.md).
+The new edge runtime must be the sole serial owner when enabled; stop legacy
+controllers before testing it.
+
 Adafruit Feather M4 Express (CircuitPython) generates a 0-2V analog dimming
 signal on pin **A0** to control an LCD panel's backlight, driven by brightness
 commands sent from a Raspberry Pi over USB serial.
@@ -52,9 +57,12 @@ pi/
 ### Calibrating the 2V max
 
 `code.py` assumes `VDDANA` is 3.3V and scales the DAC so 100% maps to 2.0V.
-Set brightness to 100% and measure the actual voltage at A0 with a multimeter;
-if it's off, adjust `DAC_FULL_SCALE_VOLTS` in [feather/code.py](feather/code.py)
-to match (e.g. if you measure 2.1V at 100%, scale down VDDANA accordingly).
+Keep the known-working scaling unchanged unless an authorized hardware check
+shows a problem. Verify the actual DAC reference and dimming input requirements
+before recalibration. The formula divides by `DAC_FULL_SCALE_VOLTS`: decreasing
+that constant increases the commanded DAC level, so the former advice to decrease
+it after measuring an excessive output was incorrect. Preserve a firmware backup
+and validate the 2 V limit using the hardware verification procedure.
 
 ## Raspberry Pi setup
 

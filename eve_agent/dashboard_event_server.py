@@ -39,14 +39,18 @@ async def ws_handler(websocket: websockets.WebSocketServerProtocol) -> None:
 
             payload = evt.get("payload", {})
             location = DEFAULT_LOCATION
+            include_week = False
+            force_refresh = False
             if isinstance(payload, dict):
+                include_week = payload.get("include_week") is True
+                force_refresh = payload.get("force_refresh") is True
                 location_raw = payload.get("location")
                 if isinstance(location_raw, str) and location_raw.strip():
                     location = location_raw.strip()
 
-            async def refresh_weather() -> None:
+            async def refresh_weather(location=location, include_week=include_week, force_refresh=force_refresh) -> None:
                 try:
-                    weather = await asyncio.to_thread(get_current_weather, location, False, True)
+                    weather = await asyncio.to_thread(get_current_weather, location, include_week, force_refresh)
                     envelope = {
                         "type": "tool_context",
                         "payload": {

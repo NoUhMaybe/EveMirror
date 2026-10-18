@@ -1,5 +1,10 @@
 # Eve Smart Mirror AI Stack
 
+> Historical voice-stack instructions and design notes. The current distributed
+> development entry point is [README.md](README.md), with verified progress in
+> [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md). Older hardware,
+> phase statuses and endpoint examples below are not deployment validation.
+
 ## Overview
 
 **Eve** is a local, voice-first smart mirror assistant intended to replace a traditional smart speaker while adding a visual dashboard and smart-home control.

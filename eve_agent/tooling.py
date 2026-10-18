@@ -1,7 +1,8 @@
 import json
 import os
 import re
-from datetime import datetime
+import threading
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 import requests
@@ -14,6 +15,8 @@ DEFAULT_LAT = 33.1507
 DEFAULT_LON = -96.8236
 WEEKLY_REFRESH_SECONDS = 3 * 60 * 60
 DAILY_REFRESH_SECONDS = 60 * 60
+_WEATHER_LOCK = threading.RLock()
+MAX_STALE_SECONDS = 24 * 60 * 60
 CACHE_FILE_PATH = os.path.join(os.path.dirname(__file__), "weather_cache.json")
 
 # In-process weather cache, keyed by location coordinates.
@@ -163,7 +166,7 @@ def _resolve_location(location: str) -> Tuple[float, float, str]:
     data = resp.json()
     results = data.get("results") or []
     if not results:
-        return DEFAULT_LAT, DEFAULT_LON, DEFAULT_LOCATION
+        raise ValueError("Requested weather location was not found")
 
     top = results[0]
     label = ", ".join(p for p in [top.get("name"), top.get("admin1"), top.get("country")] if p)
@@ -258,105 +261,13 @@ def _extract_today_hourly_rows(source: Dict[str, object]) -> Tuple[Optional[str]
             {
                 "time": ts_text,
                 "temperature_f": hour_temps[i] if i < len(hour_temps) else None,
-                "precipitation_probability_pct": hour_pop[i] if i < len(hour_pop) else 0,
-                "precipitation_in": hour_precip[i] if i < len(hour_precip) else 0,
+                "precipitation_probability_pct": hour_pop[i] if i < len(hour_pop) else None,
+                "precipitation_in": hour_precip[i] if i < len(hour_precip) else None,
                 "relative_humidity_pct": hour_humidity[i] if i < len(hour_humidity) else None,
             }
         )
 
     return today_date, out
-
-
-def _merge_hourly_rows(
-    existing_rows: List[Dict[str, object]],
-    fresh_rows: List[Dict[str, object]],
-) -> List[Dict[str, object]]:
-    by_time: Dict[str, Dict[str, object]] = {}
-
-    for row in existing_rows:
-        ts = str(row.get("time", ""))
-        if not ts:
-            continue
-        by_time[ts] = {
-            "time": ts,
-            "temperature_f": row.get("temperature_f"),
-            "precipitation_probability_pct": row.get("precipitation_probability_pct", 0),
-            "precipitation_in": row.get("precipitation_in", 0),
-            "relative_humidity_pct": row.get("relative_humidity_pct"),
-        }
-
-    for row in fresh_rows:
-        ts = str(row.get("time", ""))
-        if not ts:
-            continue
-        prior = by_time.get(ts, {"time": ts})
-        temp = row.get("temperature_f")
-        pop = row.get("precipitation_probability_pct")
-        precip = row.get("precipitation_in")
-        humidity = row.get("relative_humidity_pct")
-
-        prior["temperature_f"] = temp if temp is not None else prior.get("temperature_f")
-        prior["precipitation_probability_pct"] = pop if pop is not None else prior.get("precipitation_probability_pct", 0)
-        prior["precipitation_in"] = precip if precip is not None else prior.get("precipitation_in", 0)
-        prior["relative_humidity_pct"] = humidity if humidity is not None else prior.get("relative_humidity_pct")
-        by_time[ts] = prior
-
-    merged = list(by_time.values())
-    merged.sort(key=lambda r: str(r.get("time", "")))
-    return merged
-
-
-def _backfill_today_missing_hours(
-    date_iso: str,
-    current_hour_local: int,
-    rows: List[Dict[str, object]],
-    current_temp_f: Optional[float],
-) -> List[Dict[str, object]]:
-    # Keep original observations and only synthesize missing earlier hours for the same day.
-    by_hour: Dict[int, Dict[str, object]] = {}
-    for row in rows:
-        ts = str(row.get("time", ""))
-        if not ts:
-            continue
-        ts_hour = _parse_iso_local(ts)
-        if not ts_hour:
-            continue
-        by_hour[ts_hour.hour] = {
-            "time": ts,
-            "temperature_f": row.get("temperature_f"),
-            "precipitation_probability_pct": row.get("precipitation_probability_pct", 0),
-            "precipitation_in": row.get("precipitation_in", 0),
-            "relative_humidity_pct": row.get("relative_humidity_pct"),
-            "backfilled": bool(row.get("backfilled", False)),
-        }
-
-    anchor_temp: Optional[float] = None
-    if current_temp_f is not None:
-        anchor_temp = float(current_temp_f)
-    else:
-        temps = [r.get("temperature_f") for r in rows if r.get("temperature_f") is not None]
-        if temps:
-            anchor_temp = float(temps[-1])
-
-    for hour in range(max(0, min(23, current_hour_local)) + 1):
-        if hour in by_hour:
-            continue
-        temp = anchor_temp
-        if temp is None:
-            temp = 70.0
-
-        by_hour[hour] = {
-            "time": f"{date_iso}T{hour:02d}:00:00",
-            "temperature_f": temp,
-            "precipitation_probability_pct": 0,
-            "precipitation_in": 0,
-            "relative_humidity_pct": None,
-            "backfilled": True,
-        }
-
-    merged = list(by_hour.values())
-    merged.sort(key=lambda r: str(r.get("time", "")))
-    return merged
 
 
 _WEATHER_CACHE = _load_weather_cache()
@@ -383,34 +294,9 @@ def _fetch_weather_snapshot(lat: float, lon: float, forecast_days: int) -> Dict[
     )
     resp.raise_for_status()
     data = resp.json()
-    return data if isinstance(data, dict) else {}
-
-
-def _refresh_weekly_cache_if_due(location: str = DEFAULT_LOCATION) -> Optional[str]:
-    lat, lon, resolved = _resolve_location(location)
-    key = _cache_key(lat, lon)
-    now_ts = datetime.now().timestamp()
-
-    cached = _WEATHER_CACHE.get(key, {})
-    weekly_fetched_at = float(cached.get("weekly_fetched_at", 0.0) or 0.0)
-    weekly_source = cached.get("weekly_source") if isinstance(cached.get("weekly_source"), dict) else None
-
-    if weekly_source is not None and (now_ts - weekly_fetched_at) < WEEKLY_REFRESH_SECONDS:
-        return None
-
-    refreshed_weekly = _fetch_weather_snapshot(lat, lon, forecast_days=7)
-    next_cached = dict(cached)
-    next_cached["weekly_source"] = refreshed_weekly
-    next_cached["weekly_fetched_at"] = now_ts
-
-    # Seed daily cache only if it doesn't exist yet.
-    if not isinstance(next_cached.get("daily_source"), dict):
-        next_cached["daily_source"] = refreshed_weekly
-        next_cached["daily_fetched_at"] = now_ts
-
-    _WEATHER_CACHE[key] = next_cached
-    _save_weather_cache(_WEATHER_CACHE)
-    return resolved
+    if not isinstance(data, dict) or not isinstance(data.get("current"), dict):
+        raise ValueError("Invalid weather response")
+    return data
 
 
 def _build_weather_payload(
@@ -418,13 +304,12 @@ def _build_weather_payload(
     daily_source: Dict[str, object],
     weekly_source: Dict[str, object],
     include_week: bool,
-    cached_today_hourly: Optional[List[Dict[str, object]]] = None,
 ) -> Dict[str, object]:
     current = daily_source.get("current", {}) if isinstance(daily_source.get("current", {}), dict) else {}
     daily = daily_source.get("daily", {}) if isinstance(daily_source.get("daily", {}), dict) else {}
-    hourly = daily_source.get("hourly", {}) if isinstance(daily_source.get("hourly", {}), dict) else {}
 
-    code = int(current.get("weather_code", -1))
+    code = current.get("weather_code")
+    code = int(code) if isinstance(code, (int, float)) else -1
     condition = _WEATHER_CODE_MAP.get(code, f"weather code {code}")
 
     current_time_iso = current.get("time")
@@ -467,35 +352,7 @@ def _build_weather_payload(
         if len(days) >= (7 if include_week else 2):
             break
 
-    hour_times = hourly.get("time", []) if isinstance(hourly.get("time", []), list) else []
-    hour_temps = hourly.get("temperature_2m", []) if isinstance(hourly.get("temperature_2m", []), list) else []
-    hour_pop = hourly.get("precipitation_probability", []) if isinstance(hourly.get("precipitation_probability", []), list) else []
-    hour_precip = hourly.get("precipitation", []) if isinstance(hourly.get("precipitation", []), list) else []
-    hour_humidity = hourly.get("relative_humidity_2m", []) if isinstance(hourly.get("relative_humidity_2m", []), list) else []
-
-    hourly_today: List[Dict[str, object]] = []
-    current_hour_floor = None
-    if current_dt:
-        current_hour_floor = current_dt.replace(minute=0, second=0, microsecond=0)
-
-    if cached_today_hourly:
-        hourly_today = list(cached_today_hourly)
-    else:
-        for i, ts in enumerate(hour_times):
-            ts_text = str(ts)
-            ts_date = ts_text.split("T")[0]
-            if today_date and ts_date != today_date:
-                continue
-
-            hourly_today.append(
-                {
-                    "time": ts_text,
-                    "temperature_f": hour_temps[i] if i < len(hour_temps) else None,
-                    "precipitation_probability_pct": hour_pop[i] if i < len(hour_pop) else 0,
-                    "precipitation_in": hour_precip[i] if i < len(hour_precip) else 0,
-                    "relative_humidity_pct": hour_humidity[i] if i < len(hour_humidity) else None,
-                }
-            )
+    _, hourly_today = _extract_today_hourly_rows(daily_source)
 
     hourly_today.sort(key=lambda h: str(h.get("time", "")))
 
@@ -521,14 +378,6 @@ def _build_weather_payload(
     if current_dt:
         current_hour_local = current_dt.hour
 
-    historical_backfill_available = False
-    if current_hour_floor:
-        for row in hourly_today:
-            ts_dt = _parse_iso_local(row.get("time"))
-            if ts_dt and ts_dt < current_hour_floor:
-                historical_backfill_available = True
-                break
-
     return {
         "location": resolved_location,
         "temperature_f": current.get("temperature_2m"),
@@ -546,122 +395,71 @@ def _build_weather_payload(
             "sunrise_iso": sunrise_iso,
             "sunset_iso": sunset_iso,
             "current_hour_local": current_hour_local,
-            "historical_backfill_available": historical_backfill_available,
+            "historical_backfill_available": False,
+            "hourly_kind": "forecast",
         },
     }
 
 
 def get_current_weather(location: str, include_week: bool = False, force_refresh: bool = False) -> Dict[str, object]:
+    """Cached provider values only. Never synthesize observations or missing measurements."""
+    with _WEATHER_LOCK:
+        return _get_current_weather(location, include_week, force_refresh)
+
+
+def _get_current_weather(location: str, include_week: bool, force_refresh: bool) -> Dict[str, object]:
     lat, lon, resolved = _resolve_location(location)
     key = _cache_key(lat, lon)
     now_ts = datetime.now().timestamp()
     cached = _WEATHER_CACHE.get(key, {})
-
-    weekly_source = cached.get("weekly_source") if isinstance(cached.get("weekly_source"), dict) else None
     daily_source = cached.get("daily_source") if isinstance(cached.get("daily_source"), dict) else None
-    weekly_fetched_at = float(cached.get("weekly_fetched_at", 0.0) or 0.0)
-    daily_fetched_at = float(cached.get("daily_fetched_at", 0.0) or 0.0)
-
-    # Weekly stockpile: refresh every 6h, and on weekly-style requests.
-    needs_weekly_refresh = (
-        force_refresh
-        or
-        weekly_source is None
-        or (now_ts - weekly_fetched_at) >= WEEKLY_REFRESH_SECONDS
-        or include_week
-    )
-
-    # Daily/current view: refresh every hour and whenever weather is requested.
-    # Requests are weather-related by caller contract, so this keeps current conditions fresh.
-    needs_daily_refresh = (
-        force_refresh
-        or
-        daily_source is None
-        or (now_ts - daily_fetched_at) >= DAILY_REFRESH_SECONDS
-        or True
-    )
-
-    if needs_weekly_refresh:
-        weekly_source = _fetch_weather_snapshot(lat, lon, forecast_days=7)
-        weekly_fetched_at = now_ts
-
-    # Reuse the 7-day fetch for daily if we already made one this request.
-    if needs_daily_refresh:
-        if needs_weekly_refresh and weekly_source is not None:
+    weekly_source = cached.get("weekly_source") if isinstance(cached.get("weekly_source"), dict) else None
+    daily_fetched_at = float(cached.get("daily_fetched_at", 0) or 0)
+    weekly_fetched_at = float(cached.get("weekly_fetched_at", 0) or 0)
+    daily_due = (force_refresh or not isinstance(daily_source, dict)
+                 or not 0 <= now_ts - daily_fetched_at < DAILY_REFRESH_SECONDS)
+    weekly_due = include_week and (force_refresh or not isinstance(weekly_source, dict)
+                 or not 0 <= now_ts - weekly_fetched_at < WEEKLY_REFRESH_SECONDS)
+    stale = False
+    try:
+        if weekly_due:
+            weekly_source = _fetch_weather_snapshot(lat, lon, forecast_days=7)
+            weekly_fetched_at = now_ts
             daily_source = weekly_source
-        else:
+            daily_fetched_at = now_ts
+        elif daily_due:
             daily_source = _fetch_weather_snapshot(lat, lon, forecast_days=2)
-        daily_fetched_at = now_ts
+            daily_fetched_at = now_ts
+    except (requests.RequestException, ValueError):
+        selected = weekly_source if include_week else daily_source
+        acquired = weekly_fetched_at if include_week else daily_fetched_at
+        if not isinstance(selected, dict) or not 0 <= now_ts - acquired <= MAX_STALE_SECONDS:
+            raise
+        stale = True
 
-    if weekly_source is None or daily_source is None:
-        # Defensive fallback if an unexpected path skipped fetches.
-        snapshot = _fetch_weather_snapshot(lat, lon, forecast_days=7)
-        weekly_source = snapshot
-        daily_source = snapshot
-        weekly_fetched_at = now_ts
-        daily_fetched_at = now_ts
-
-    cached_daily_hourly = cached.get("daily_hourly_cache") if isinstance(cached.get("daily_hourly_cache"), dict) else {}
-    today_date, fresh_rows = _extract_today_hourly_rows(daily_source)
-    next_daily_hourly_cache: Dict[str, List[Dict[str, object]]] = {}
-    current = daily_source.get("current", {}) if isinstance(daily_source.get("current", {}), dict) else {}
-    current_dt = _parse_iso_local(current.get("time"))
-    current_hour_local = datetime.now().astimezone().hour
-    if current_dt:
-        current_hour_local = current_dt.hour
-    current_temp_f = current.get("temperature_2m") if isinstance(current.get("temperature_2m"), (int, float)) else None
-
-    if today_date:
-        # Keep only current/future day buckets; drop fully elapsed days.
-        for date_key, rows in cached_daily_hourly.items():
-            if not isinstance(date_key, str) or date_key < today_date:
-                continue
-            if isinstance(rows, list):
-                normalized_rows = [r for r in rows if isinstance(r, dict)]
-                next_daily_hourly_cache[date_key] = normalized_rows
-
-        existing_rows = next_daily_hourly_cache.get(today_date, [])
-        merged_rows = _merge_hourly_rows(existing_rows, fresh_rows)
-        backfilled_rows = _backfill_today_missing_hours(
-            date_iso=today_date,
-            current_hour_local=current_hour_local,
-            rows=merged_rows,
-            current_temp_f=float(current_temp_f) if current_temp_f is not None else None,
-        )
-        next_daily_hourly_cache[today_date] = backfilled_rows
-
-    cached_today_hourly = next_daily_hourly_cache.get(today_date, []) if today_date else []
-
+    # Do not reuse the legacy hourly cache: it may contain synthetic backfilled data.
     _WEATHER_CACHE[key] = {
-        "weekly_source": weekly_source,
-        "daily_source": daily_source,
-        "weekly_fetched_at": weekly_fetched_at,
-        "daily_fetched_at": daily_fetched_at,
-        "daily_hourly_cache": next_daily_hourly_cache,
+        "weekly_source": weekly_source, "weekly_fetched_at": weekly_fetched_at,
+        "daily_source": daily_source, "daily_fetched_at": daily_fetched_at,
     }
     _save_weather_cache(_WEATHER_CACHE)
-
-    return _build_weather_payload(
-        resolved_location=resolved,
-        daily_source=daily_source,
-        weekly_source=weekly_source,
-        include_week=include_week,
-        cached_today_hourly=cached_today_hourly,
-    )
+    source = weekly_source if include_week else daily_source
+    payload = _build_weather_payload(resolved, daily_source or source, source, include_week)
+    payload.update({
+        "source": "open-meteo", "source_timestamp": (daily_source or source).get("current", {}).get("time"),
+        "acquired_at": datetime.fromtimestamp(daily_fetched_at, timezone.utc).isoformat(),
+        "forecast_acquired_at": datetime.fromtimestamp(
+            weekly_fetched_at if include_week else daily_fetched_at, timezone.utc).isoformat(),
+        "stale": stale, "weather_error": "weather_source_unavailable" if stale else None,
+        "units": {"temperature": "fahrenheit", "wind": "mph", "precipitation": "inch"},
+    })
+    return payload
 
 
 def maybe_call_tools(user_text: str) -> Tuple[List[str], Dict[str, object]]:
     text = user_text.lower()
     notes: List[str] = []
     payload: Dict[str, object] = {}
-
-    # Autonomous cache refresh: keep weekly stockpile current every 3 hours.
-    try:
-        refreshed_location = _refresh_weekly_cache_if_due(DEFAULT_LOCATION)
-        if refreshed_location:
-            notes.append(f"weather weekly cache auto-refreshed (location={refreshed_location})")
-    except Exception as exc:
-        notes.append(f"weather weekly cache auto-refresh failed ({exc})")
 
     if is_weather_request(user_text):
         requested_location = extract_requested_location(user_text)

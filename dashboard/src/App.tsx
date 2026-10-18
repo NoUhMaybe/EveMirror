@@ -1,6 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
+import { extractWeatherTileData, isValidWeatherTileData, type WeatherHourPoint, type WeatherTileData } from "./state/weather";
 
 type EventEnvelope = {
   type: string;
@@ -36,30 +37,6 @@ type ClockParts = {
   minute: string;
   dayLabel: string;
   dateLabel: string;
-};
-
-type WeatherHourPoint = {
-  iso: string;
-  hour: number;
-  tempF: number;
-  precipChancePct: number;
-  humidityPct: number | null;
-};
-
-type WeatherTileData = {
-  location: string;
-  date: string;
-  condition: string;
-  hours: WeatherHourPoint[];
-  currentTempF: number | null;
-  humidityPct: number | null;
-  isMock: boolean;
-  highIndex: number;
-  lowIndex: number;
-  sunriseHour: number | null;
-  sunsetHour: number | null;
-  currentHour: number;
-  hasHistoricalBackfill: boolean;
 };
 
 type LayoutPreset = "center" | "top" | "bottom" | "left" | "right" | "upper-right" | "upper-left";
@@ -98,7 +75,7 @@ const TOOLS_LAYOUT_ANIMATION_MS = 1650;
 const TILE_SWITCH_FADE_MS = 260;
 const TILE_SWITCH_MOVE_MS = 1800;
 const EARLY_RELEASE_MS = 80;
-const WEATHER_CACHE_STORAGE_KEY = "eve.dashboard.lastRealWeather.v1";
+const WEATHER_CACHE_STORAGE_KEY = "eve.dashboard.lastRealWeather.v2";
 const TEST_UI_ENABLED =
   (import.meta.env.VITE_SHOW_TTS_TEST_UI ?? "0") === "1" ||
   (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("ttsTest") === "1");
@@ -199,75 +176,6 @@ function interpolateLayout(from: StageLayout, to: StageLayout, t: number): Stage
   };
 }
 
-function parseHourFromIso(iso: string): number | null {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.getHours();
-}
-
-function toNumberOrDefault(value: unknown, fallback: number): number {
-  const n = toFiniteNumber(value);
-  return n === null ? fallback : n;
-}
-
-function extractWeatherTileData(payload: Record<string, unknown>): WeatherTileData | null {
-  const toolPayload = payload.payload;
-  if (!toolPayload || typeof toolPayload !== "object") return null;
-  const weatherRaw = (toolPayload as Record<string, unknown>).weather;
-  if (!weatherRaw || typeof weatherRaw !== "object") return null;
-  const weather = weatherRaw as Record<string, unknown>;
-  const todayRaw = weather.today_detail;
-  if (!todayRaw || typeof todayRaw !== "object") return null;
-  const today = todayRaw as Record<string, unknown>;
-
-  const hourlyRaw = Array.isArray(today.hourly) ? today.hourly : [];
-  const hours: WeatherHourPoint[] = hourlyRaw
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const row = item as Record<string, unknown>;
-      const iso = String(row.time ?? "");
-      const parsedHour = parseHourFromIso(iso);
-      if (!iso || parsedHour === null) return null;
-      return {
-        iso,
-        hour: parsedHour,
-        tempF: toNumberOrDefault(row.temperature_f, 0),
-        precipChancePct: toNumberOrDefault(row.precipitation_probability_pct, 0),
-        humidityPct: toFiniteNumber(row.relative_humidity_pct),
-      };
-    })
-    .filter((v): v is WeatherHourPoint => v !== null);
-
-  if (hours.length === 0) return null;
-
-  const sunriseHour = (() => {
-    const iso = String(today.sunrise_iso ?? "");
-    if (!iso) return null;
-    return parseHourFromIso(iso);
-  })();
-  const sunsetHour = (() => {
-    const iso = String(today.sunset_iso ?? "");
-    if (!iso) return null;
-    return parseHourFromIso(iso);
-  })();
-
-  return {
-    location: String(weather.location ?? "Frisco, Texas"),
-    date: String(today.date ?? ""),
-    condition: String(weather.condition ?? "Clear"),
-    hours,
-    currentTempF: toFiniteNumber(weather.temperature_f),
-    humidityPct: toFiniteNumber(weather.humidity_pct),
-    isMock: false,
-    highIndex: Math.max(0, Math.min(hours.length - 1, Math.floor(toNumberOrDefault(today.high_index, 0)))),
-    lowIndex: Math.max(0, Math.min(hours.length - 1, Math.floor(toNumberOrDefault(today.low_index, 0)))),
-    sunriseHour,
-    sunsetHour,
-    currentHour: Math.max(0, Math.min(23, Math.floor(toNumberOrDefault(today.current_hour_local, new Date().getHours())))),
-    hasHistoricalBackfill: Boolean(today.historical_backfill_available),
-  };
-}
-
 function makeMockWeatherTileData(): WeatherTileData {
   const now = new Date();
   const date = now.toISOString().slice(0, 10);
@@ -298,6 +206,8 @@ function makeMockWeatherTileData(): WeatherTileData {
     currentTempF: Math.round(hours[Math.max(0, Math.min(hours.length - 1, now.getHours()))].tempF),
     humidityPct: 42,
     isMock: true,
+    week: [],
+    stale: false,
     highIndex,
     lowIndex,
     sunriseHour: 7,
@@ -305,41 +215,6 @@ function makeMockWeatherTileData(): WeatherTileData {
     currentHour: now.getHours(),
     hasHistoricalBackfill: false,
   };
-}
-
-function isValidWeatherTileData(value: unknown): value is WeatherTileData {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  if (typeof v.location !== "string") return false;
-  if (typeof v.date !== "string") return false;
-  if (!(typeof v.condition === "string" || v.condition === undefined)) return false;
-  if (!Array.isArray(v.hours)) return false;
-  if (typeof v.highIndex !== "number" || typeof v.lowIndex !== "number") return false;
-  if (typeof v.currentHour !== "number") return false;
-  if (typeof v.hasHistoricalBackfill !== "boolean") return false;
-  if (typeof v.isMock !== "boolean") return false;
-
-  for (const item of v.hours) {
-    if (!item || typeof item !== "object") return false;
-    const h = item as Record<string, unknown>;
-    if (typeof h.iso !== "string") return false;
-    if (typeof h.hour !== "number") return false;
-    if (typeof h.tempF !== "number") return false;
-    if (typeof h.precipChancePct !== "number") return false;
-    if (!(typeof h.humidityPct === "number" || h.humidityPct === null)) return false;
-  }
-
-  const currentTempF = v.currentTempF;
-  if (!(typeof currentTempF === "number" || currentTempF === null)) return false;
-  const humidityPct = v.humidityPct;
-  if (!(typeof humidityPct === "number" || humidityPct === null)) return false;
-
-  const sunriseHour = v.sunriseHour;
-  if (!(typeof sunriseHour === "number" || sunriseHour === null)) return false;
-  const sunsetHour = v.sunsetHour;
-  if (!(typeof sunsetHour === "number" || sunsetHour === null)) return false;
-
-  return true;
 }
 
 function smoothReactiveValue(current: number, target: number, attack: number, release: number, maxStep: number): number {
@@ -1146,27 +1021,24 @@ function WeatherTile({
     if (weatherData?.currentTempF !== null && weatherData?.currentTempF !== undefined) {
       return Math.round(weatherData.currentTempF);
     }
-    if (!nearestHourPoint) return null;
-    return Math.round(nearestHourPoint.tempF);
+    return null;
   }, [debugTempOverride, nearestHourPoint, variant, weatherData]);
 
   const highTempF = useMemo(() => {
     if (variant === "weather" && weatherData?.isMock) return null;
-    if (!weatherData || weatherData.hours.length === 0) return null;
-    const idx = Math.max(0, Math.min(weatherData.hours.length - 1, weatherData.highIndex));
-    return Math.round(weatherData.hours[idx].tempF);
+    const day = weatherData?.week.find(day => day.date === weatherData.date);
+    return day?.highF == null ? null : Math.round(day.highF);
   }, [variant, weatherData]);
 
   const lowTempF = useMemo(() => {
     if (variant === "weather" && weatherData?.isMock) return null;
-    if (!weatherData || weatherData.hours.length === 0) return null;
-    const idx = Math.max(0, Math.min(weatherData.hours.length - 1, weatherData.lowIndex));
-    return Math.round(weatherData.hours[idx].tempF);
+    const day = weatherData?.week.find(day => day.date === weatherData.date);
+    return day?.lowF == null ? null : Math.round(day.lowF);
   }, [variant, weatherData]);
 
   const precipPct = useMemo(() => {
     if (variant === "weather" && weatherData?.isMock) return null;
-    if (!nearestHourPoint) return null;
+    if (nearestHourPoint?.precipChancePct == null) return null;
     return roundToNearestFive(nearestHourPoint.precipChancePct);
   }, [nearestHourPoint, variant, weatherData]);
 
@@ -1177,62 +1049,25 @@ function WeatherTile({
   }, [variant, weatherData]);
 
   const weeklyForecastRows = useMemo(() => {
-    if (!isWeeklyWeatherTile) {
-      return [] as Array<{
-        key: string;
-        dayLabel: string;
-        tempF: number | null;
-        highF: number | null;
-        lowF: number | null;
-        precipPct: number | null;
-        humidityPct: number | null;
-      }>;
-    }
-
-    const baseTemp = currentTempF;
-    const baseHigh = highTempF;
-    const baseLow = lowTempF;
-    const basePrecip = precipPct;
-    const baseHumidity = humidityPct;
-    const today = new Date();
-
-    return Array.from({ length: 6 }, (_, idx) => {
-      const dayOffset = idx + 1;
-      const d = new Date(today);
-      d.setDate(today.getDate() + dayOffset);
-
-      const drift = Math.round(Math.sin(dayOffset * 1.37) * 4 + Math.cos(dayOffset * 0.73) * 2);
-      const temp = baseTemp === null ? null : Math.round(baseTemp + drift);
-      const highDelta = Math.max(2, Math.round(5 + Math.sin(dayOffset * 0.8) * 2));
-      const lowDelta = Math.max(2, Math.round(6 + Math.cos(dayOffset * 0.9) * 2));
-      const hi = temp === null ? baseHigh : temp + highDelta;
-      const lo = temp === null ? baseLow : temp - lowDelta;
-
-      const p = basePrecip === null
-        ? null
-        : roundToNearestFive(clamp(basePrecip + Math.round(Math.sin(dayOffset * 1.4) * 18), 0, 100));
-      const h = baseHumidity === null
-        ? null
-        : clamp(Math.round(baseHumidity + Math.round(Math.cos(dayOffset * 1.1) * 12)), 0, 100);
-
-      return {
-        key: `weekly-${dayOffset}`,
-        dayLabel: d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(),
-        tempF: temp,
-        highF: hi,
-        lowF: lo,
-        precipPct: p,
-        humidityPct: h,
-      };
-    });
-  }, [currentTempF, highTempF, humidityPct, isWeeklyWeatherTile, lowTempF, precipPct]);
+    if (!isWeeklyWeatherTile || !weatherData) return [];
+    return weatherData.week.filter(day => day.date > weatherData.date).slice(0, 6).map(day => ({
+      key: day.date,
+      dayLabel: new Date(`${day.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(),
+      tempF: day.highF === null ? null : Math.round(day.highF),
+      highF: day.highF === null ? null : Math.round(day.highF),
+      lowF: day.lowF === null ? null : Math.round(day.lowF),
+      precipPct: day.rainChancePct,
+      humidityPct: null,
+      condition: day.condition,
+    }));
+  }, [isWeeklyWeatherTile, weatherData]);
 
   const isTripleDigitTemp = useMemo(() => {
     if (currentTempF === null || currentTempF === undefined) return false;
     return Math.abs(currentTempF) >= 100;
   }, [currentTempF]);
 
-  const conditionVisual = useMemo(() => {
+  const conditionVisual = useMemo<{kind: "sunny" | "partly-cloudy" | "rain" | "snow" | "storm" | "fog"; label: string}>(() => {
     if (debugIconOverride !== "auto") {
       const labels: Record<"sunny" | "partly-cloudy" | "rain" | "snow" | "storm" | "fog", string> = {
         sunny: "Sunny",
@@ -1284,7 +1119,7 @@ function WeatherTile({
     const bottomPad = 8;
 
     const sorted = [...weatherData.hours].sort((a, b) => a.hour - b.hour);
-    const wrapped = [...sorted, { ...sorted[0], hour: 24 }];
+    const wrapped = sorted;
     const hourToTemp = new Map<number, number>();
     for (const row of sorted) {
       hourToTemp.set(row.hour, row.tempF);
@@ -1415,7 +1250,7 @@ function WeatherTile({
     }
 
     const sorted = [...weatherData.hours].sort((a, b) => a.hour - b.hour);
-    const values = sorted.map((h) => clamp(roundToNearestFive(Math.max(0, h.precipChancePct)), 0, 100));
+    const values = sorted.map((h) => h.precipChancePct === null ? null : clamp(roundToNearestFive(h.precipChancePct), 0, 100));
 
     const slot = 100 / 24;
     const barW = slot * 0.58;
@@ -1437,13 +1272,13 @@ function WeatherTile({
     return sorted.map((h, i) => {
       const centerX = (h.hour / 24) * 100;
       const chance = values[i];
-      const normalized = chance / 100;
+      const normalized = (chance ?? 0) / 100;
       const hPx = minBar + normalized * (maxBar - minBar);
       return {
         x: centerX - barW / 2,
         w: barW,
-        h: hPx,
-        opacity: chance <= 0 ? 0.22 : 0.42 + normalized * 0.48,
+        h: chance === null ? 0 : hPx,
+        opacity: (chance ?? 0) <= 0 ? 0.22 : 0.42 + normalized * 0.48,
       };
     });
   }, [activePrecipBarHeightPx, debugMaxPrecipBars, variant, weatherData]);
@@ -1454,7 +1289,7 @@ function WeatherTile({
     }
 
     const sorted = [...weatherData.hours].sort((a, b) => a.hour - b.hour);
-    const values = sorted.map((h) => clamp(roundToNearestFive(Math.max(0, h.humidityPct ?? 0)), 0, 100));
+    const values = sorted.map((h) => h.humidityPct === null ? null : clamp(roundToNearestFive(h.humidityPct), 0, 100));
 
     const slot = 100 / 24;
     const barW = slot * 0.58;
@@ -1476,13 +1311,13 @@ function WeatherTile({
     return sorted.map((h, i) => {
       const centerX = (h.hour / 24) * 100;
       const humidity = values[i];
-      const normalized = humidity / 100;
+      const normalized = (humidity ?? 0) / 100;
       const hPx = minBar + normalized * (maxBar - minBar);
       return {
         x: centerX - barW / 2,
         w: barW,
-        h: hPx,
-        opacity: humidity <= 0 ? 0.22 : 0.42 + normalized * 0.48,
+        h: humidity === null ? 0 : hPx,
+        opacity: (humidity ?? 0) <= 0 ? 0.22 : 0.42 + normalized * 0.48,
       };
     });
   }, [activeHumidityBarHeightPx, debugMaxHumidityBars, variant, weatherData]);
@@ -1830,6 +1665,7 @@ function WeatherTile({
 
           {isWeeklyWeatherTile && (
             <div className="weather-weekly-grid" aria-hidden="true">
+              {weeklyForecastRows.length === 0 && <div>Forecast unavailable</div>}
               {weeklyForecastRows.map((row) => (
                 <div key={row.key} className="weather-weekly-card">
                   <div className="weather-weekly-day">{row.dayLabel}</div>
@@ -1846,16 +1682,17 @@ function WeatherTile({
                   </div>
                   <div className="weather-weekly-mini-icon" aria-hidden="true">
                     <svg viewBox="0 0 128 128" role="presentation" focusable="false" aria-hidden="true">
-                      <ConditionIconPaths kind={conditionVisual.kind} />
+                      <text x="64" y="75" textAnchor="middle" fill="currentColor" fontSize="28">HIGH</text>
                     </svg>
                   </div>
-                  <div className="weather-weekly-condition">{conditionVisual.label}</div>
+                  <div className="weather-weekly-condition">{row.condition}</div>
                 </div>
               ))}
             </div>
           )}
         </>
       )}
+      {isWeatherTile && (weatherData?.stale || weatherData?.isMock) && <div className="weather-data-note">{weatherData.isMock ? "DEMO WEATHER" : `CACHED WEATHER: ${weatherData.date}`}</div>}
       {variant === "timer" && (
         <div className="timer-tile-content">
           <div className="timer-tile-title">Timer</div>
@@ -2009,7 +1846,7 @@ function App() {
       if (!raw) return;
       const parsed = JSON.parse(raw) as unknown;
       if (isValidWeatherTileData(parsed) && !parsed.isMock) {
-        setWeatherTileData(parsed);
+        setWeatherTileData({ ...parsed, stale: true });
       }
     } catch {
       // Ignore malformed storage data.
@@ -2158,7 +1995,7 @@ function App() {
     }
   };
 
-  const requestWeatherTileRefresh = () => {
+  const requestWeatherTileRefresh = (forceRefresh = false) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       pendingWeatherRefreshRef.current = true;
@@ -2182,7 +2019,7 @@ function App() {
     ws.send(
       JSON.stringify({
         type: "dashboard_refresh_weather",
-        payload: { location: weatherTileData?.location || "Frisco, Texas" },
+        payload: { location: weatherTileData?.location || "Frisco, Texas", include_week: selectedTilePreset === "large-weather-weekly" || activeTilePreset === "large-weather-weekly", force_refresh: forceRefresh },
       })
     );
   };
@@ -2304,7 +2141,7 @@ function App() {
 
   const showWeatherTile = activeTilePreset !== null;
 
-  const tileSet = useMemo(() => {
+  const tileSet = useMemo<{ layoutClassName: string; tiles: Array<{size: TileSize; variant: TileVariant}> } | null>(() => {
     if (activeTilePreset === "large-default") {
       return {
         layoutClassName: "weather-tile-set-large-default",
@@ -2845,7 +2682,7 @@ function App() {
             <div className="layout-debug-row">
               <button
                 type="button"
-                onClick={requestWeatherTileRefresh}
+                onClick={() => requestWeatherTileRefresh(true)}
                 disabled={weatherRefreshPhase === "requested"}
               >
                 {weatherRefreshPhase === "requested"

@@ -265,6 +265,15 @@ body,
   z-index: 9;
 }
 
+.weather-data-note {
+  position: absolute;
+  left: 24px;
+  bottom: 12px;
+  color: #c1c8d2;
+  font: 11px "Segoe UI", sans-serif;
+  letter-spacing: 0.08em;
+}
+
 .weather-tile-blank {
   border: none;
 }
