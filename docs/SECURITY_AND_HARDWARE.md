@@ -1,5 +1,20 @@
 # Security boundaries and hardware verification
 
+Phase 7 routes local presence, manual and LLM brightness intents through one edge
+arbiter and the existing durable command journal. Unknown sensor input never
+confirms absence; uncertainty after a hardware write stops automation across
+restart. No physical sensor driver is enabled: only `none`/explicit simulation
+ship. A future sensor must own a separate verified path and cannot open Feather.
+Firmware, DAC scale, ENA polarity, HDMI/compositor and boot settings are unchanged.
+
+Browser display settings require a separate default-false `display_control` grant,
+backend mutation opt-in and current Origin/CSRF/session checks. Commands contain
+finite policy values, never raw serial, GPIO or shell. Manual off deliberately
+wins over voice/alarm backlight protection for its configured duration; audio
+alarms and replay receipts remain independent. Read-only diagnostics and exact
+physical approval boundaries are in [Phase 7 presence](PHASE7_PRESENCE.md), the
+[deployment plan](PHASE7_DEPLOYMENT_PLAN.md) and [acceptance stages](PHASE7_HARDWARE_ACCEPTANCE.md).
+
 Phase 6 introduces a dedicated browser boundary described in
 [PHASE6_DASHBOARD.md](PHASE6_DASHBOARD.md). Browser access defaults off; reviewed
 HTTPS origins and explicit per-mirror grants are required. Short-lived pairing

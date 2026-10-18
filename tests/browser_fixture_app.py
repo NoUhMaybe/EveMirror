@@ -14,9 +14,11 @@ from fastapi import HTTPException, Request
 
 from apps.config import BrowserGrant, BrowserSettings, ServerSettings, VoiceGrant
 from apps.edge.hardware import SimulatedHardware
+from apps.edge.presence.sensors import SimulatedSensor
 from apps.edge.runtime import EdgeRuntime
 from apps.server.agent.messages import LLMMessage, LLMResponse, ToolCall
 from apps.server.main import create_app
+from packages.presence import PresenceOptions
 from tests.conftest import EDGE_TOKEN, OPERATOR_TOKEN
 from tests.service_fixtures import FakeClock, HomeFixture, forecast_fixture
 from tests.test_agent_api import FunctionProvider, final
@@ -57,6 +59,7 @@ def create_fixture_app():
                     timers=True,
                     home_control=True,
                     voice_control=True,
+                    display_control=True,
                     debug=True,
                     home_entities={"light.bedroom", "media_player.tv"},
                 )
@@ -130,9 +133,22 @@ def create_fixture_app():
             "home": httpx.MockTransport(home.handler),
         },
     )
+    edge = edge_settings(root, port)
+    edge.presence_driver = "simulated"
+    edge.presence = PresenceOptions(
+        present_confirm=0.0,
+        absent_confirm=0.0,
+        absence_timeout=0.0,
+        minimum_awake=0.0,
+        wake_cooldown=0.0,
+        activity_grace=0.0,
+    )
+    sensor = SimulatedSensor()
+    sensor.feed("PRESENT")
     runtime = EdgeRuntime(
-        edge_settings(root, port),
+        edge,
         SimulatedHardware(),
+        presence_sensor=sensor,
         audio_source=microphone,
         detector=Detector(),
         speaker=speaker,
@@ -207,6 +223,11 @@ def create_fixture_app():
             clock.advance(601)
             await app.state.services.timers.reconcile()
             return {"status": "expired"}
+        if action in {"presence-absent", "presence-present", "presence-unknown"}:
+            state = action.split("-", 1)[1].upper()
+            sensor.feed(state)
+            await until(lambda: runtime.display.status.confirmed == state)
+            return {"status": state}
         raise HTTPException(404)
 
     return app

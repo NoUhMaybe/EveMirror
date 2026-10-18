@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from starlette.responses import JSONResponse
 
 from apps.server.auth import authenticated
-from apps.server.browser.models import BrowserAction, MuteRequest, PairingApproval, PairingRequest
+from apps.server.browser.models import (
+    BrowserAction,
+    DisplayRequest,
+    MuteRequest,
+    PairingApproval,
+    PairingRequest,
+)
 from apps.server.browser.sessions import csrf
 
 
@@ -174,5 +180,9 @@ def browser_router(settings, service):
     @router.post("/api/browser/voice/cancel")
     async def cancel(auth=authentication):
         return await service.cancel(auth[0])
+
+    @router.post("/api/browser/display")
+    async def display(body: DisplayRequest, auth=authentication):
+        return await service.display(auth[0], body)
 
     return router

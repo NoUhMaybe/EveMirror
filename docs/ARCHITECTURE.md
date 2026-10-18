@@ -24,6 +24,16 @@ inference and physical audio acceptance are pending.
 
 ## Incremental boundaries
 
+Phase 7 adds `apps/edge/presence` and portable `packages/presence` contracts.
+Sensor and policy workers run in the existing edge runtime independently of its
+outbound connection. Activity notifications never wait for serial. One arbiter
+orders manual/voice/alarm/presence/night intents, with existing command journaling
+before every physical write and a durable uncertainty latch. Preferred settings
+use an additive table in the same edge command DB. Backend presence state uses
+the current gateway projection and scoped event store; the browser receives typed
+diagnostics and finite permission-checked updates. No new runtime, event database,
+hardware owner or firmware protocol is introduced. See [Phase 7](PHASE7_PRESENCE.md).
+
 - `apps/edge`: network runtime, single serial owner, memory-only audio sender,
   durable command replay protection; optional `voice/` owns native-rate capture,
   wake/VAD, one output manager and a separate durable alarm/mute journal. Local hardware calls use the same service

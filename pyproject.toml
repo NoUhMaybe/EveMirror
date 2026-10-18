@@ -11,6 +11,7 @@ dependencies = [
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
   "websockets>=15,<18",
+  "tzdata>=2026.5",
 ]
 
 [project.optional-dependencies]

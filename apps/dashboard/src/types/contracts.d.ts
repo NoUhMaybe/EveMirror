@@ -93,7 +93,14 @@ export type Type =
   | "home.entity_changed"
   | "media.state_changed"
   | "dashboard.show_view"
-  | "tool.execution_completed";
+  | "tool.execution_completed"
+  | "presence.detected"
+  | "presence.lost"
+  | "presence.unknown"
+  | "presence.unavailable"
+  | "display.awake"
+  | "display.asleep"
+  | "display.brightness_changed";
 export type Version3 = 1;
 export type Events = SemanticEvent[];
 export type Version4 = 1;
@@ -109,6 +116,44 @@ export type Source1 = "home-assistant";
 export type State = string;
 export type Home = BrowserHome[];
 export type Model = string | null;
+export type AcknowledgedPercent = number | null;
+export type ActivityProtected = boolean;
+export type Confirmed = "PRESENT" | "ABSENT" | "UNKNOWN";
+export type Display = "awake" | "asleep" | "unknown";
+export type Driver = "none" | "simulated";
+export type OverrideActive = boolean;
+export type Health =
+  | "healthy"
+  | "timeout"
+  | "unavailable"
+  | "malformed"
+  | "disabled";
+export type State1 = "PRESENT" | "ABSENT" | "UNKNOWN";
+export type Reason =
+  | "manual"
+  | "activity"
+  | "presence"
+  | "night"
+  | "default"
+  | "unknown";
+export type AbsenceTimeout = number;
+export type AbsentConfirm = number;
+export type ActivityGrace = number;
+export type Enabled = boolean;
+export type ManualOverrideSeconds = number;
+export type MinimumAwake = number;
+export type Enabled1 = boolean;
+export type End = string;
+export type Percent = number;
+export type Start = string;
+export type Timezone1 = string;
+export type PreferredPercent = number;
+export type PresentConfirm = number;
+export type UnknownPolicy = "awake" | "hold";
+export type WakeCooldown = number;
+export type Simulated = boolean;
+export type TargetPercent = number | null;
+export type Uncertain = boolean;
 export type Provider = string;
 export type Reset = boolean;
 export type ServerTime = string;
@@ -119,6 +164,7 @@ export type Id1 = string;
 export type Name3 = string;
 export type Captions = boolean;
 export type Debug = boolean;
+export type DisplayControl = boolean;
 export type HomeControl = boolean;
 export type HomeEntities = string[];
 export type Timers1 = boolean;
@@ -146,7 +192,7 @@ export type InputLevelRms = number;
 export type Microphone = boolean;
 export type Muted = boolean;
 export type Speaker = boolean;
-export type State1 =
+export type State2 =
   | "STARTING"
   | "IDLE"
   | "WAKE_DETECTED"
@@ -194,6 +240,7 @@ export interface BrowserFrame {
   events: EventPage;
   home: Home;
   model: Model;
+  presence?: PresenceStatus | null;
   provider: Provider;
   reset: Reset;
   server_time: ServerTime;
@@ -327,6 +374,44 @@ export interface BrowserHome {
 export interface Attributes {
   [k: string]: unknown;
 }
+export interface PresenceStatus {
+  acknowledged_percent?: AcknowledgedPercent;
+  activity_protected?: ActivityProtected;
+  confirmed?: Confirmed;
+  display?: Display;
+  driver?: Driver;
+  override_active?: OverrideActive;
+  reading?: PresenceReading;
+  reason?: Reason;
+  settings?: PresenceOptions;
+  simulated?: Simulated;
+  target_percent?: TargetPercent;
+  uncertain?: Uncertain;
+}
+export interface PresenceReading {
+  health?: Health;
+  state?: State1;
+}
+export interface PresenceOptions {
+  absence_timeout?: AbsenceTimeout;
+  absent_confirm?: AbsentConfirm;
+  activity_grace?: ActivityGrace;
+  enabled?: Enabled;
+  manual_override_seconds?: ManualOverrideSeconds;
+  minimum_awake?: MinimumAwake;
+  night?: NightSchedule;
+  preferred_percent?: PreferredPercent;
+  present_confirm?: PresentConfirm;
+  unknown_policy?: UnknownPolicy;
+  wake_cooldown?: WakeCooldown;
+}
+export interface NightSchedule {
+  enabled?: Enabled1;
+  end?: End;
+  percent?: Percent;
+  start?: Start;
+  timezone?: Timezone1;
+}
 export interface BrowserSession {
   csrf: Csrf;
   device_id: DeviceId3;
@@ -338,6 +423,7 @@ export interface BrowserSession {
 export interface BrowserGrant {
   captions?: Captions;
   debug?: Debug;
+  display_control?: DisplayControl;
   home_control?: HomeControl;
   home_entities?: HomeEntities;
   timers?: Timers1;
@@ -379,7 +465,7 @@ export interface EdgeVoicePayload {
   microphone?: Microphone;
   muted?: Muted;
   speaker?: Speaker;
-  state: State1;
+  state: State2;
   vad_ready?: VadReady;
   wake_ready?: WakeReady;
 }

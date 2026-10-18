@@ -15,6 +15,8 @@ from pydantic import (
     model_validator,
 )
 
+from packages.presence import DisplayPolicyUpdate, PresenceStatus
+
 DeviceId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$")]
 MAX_FRAME_BYTES = 16_000
 MAX_MESSAGE_BYTES = 24_000
@@ -52,7 +54,13 @@ class SetDisplayMode(Model):
     mode: Literal["awake", "sleep"]
 
 
-Command = Annotated[SetBrightness | GetStatus | SetDisplayMode, Field(discriminator="action")]
+class SetDisplayPolicy(DisplayPolicyUpdate):
+    action: Literal["set_display_policy"]
+
+
+Command = Annotated[
+    SetBrightness | GetStatus | SetDisplayMode | SetDisplayPolicy, Field(discriminator="action")
+]
 
 
 class DeviceCommand(Envelope):
@@ -93,7 +101,16 @@ class DeviceAck(Envelope):
 
 class HelloPayload(Model):
     capabilities: tuple[
-        Literal["brightness", "pcm_upload", "voice", "playback", "timer_sync", "voice_control"], ...
+        Literal[
+            "brightness",
+            "pcm_upload",
+            "voice",
+            "playback",
+            "timer_sync",
+            "voice_control",
+            "presence",
+        ],
+        ...,
     ] = ("brightness", "pcm_upload")
 
 
@@ -107,11 +124,17 @@ class Heartbeat(Envelope):
     payload: HardwareStatus = Field(default_factory=HardwareStatus)
 
 
+class EdgePresenceState(Envelope):
+    type: Literal["edge.presence_state"] = "edge.presence_state"
+    payload: PresenceStatus
+
+
 class EdgeState(Model):
     device_id: DeviceId
     online: bool
     last_heartbeat: AwareDatetime | None = None
     hardware: HardwareStatus = Field(default_factory=HardwareStatus)
+    presence: PresenceStatus | None = None
 
 
 class SnapshotPayload(Model):
@@ -394,6 +417,7 @@ Message = Annotated[
     | PlaybackStatus
     | VoiceStatus
     | EdgeVoiceState
+    | EdgePresenceState
     | VoiceControl
     | VoiceControlAck
     | TimerSync

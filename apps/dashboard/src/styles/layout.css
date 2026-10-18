@@ -1110,3 +1110,26 @@
 .dashboard[data-layout="focus"] .context-space {
   align-self: start;
 }
+
+.presence-hint {
+  font-size: 0.8em;
+  opacity: 0.65;
+  transition: opacity 1.5s ease;
+}
+.presence-settings fieldset {
+  border: 1px solid var(--eve-line);
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.presence-settings input:not([type="checkbox"]) {
+  max-width: 100%;
+  color: inherit;
+  background: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .presence-hint {
+    transition: none;
+  }
+}

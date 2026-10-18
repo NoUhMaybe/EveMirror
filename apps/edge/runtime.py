@@ -17,6 +17,7 @@ from websockets.exceptions import ConnectionClosed, InvalidStatus
 from apps.config import EdgeSettings
 from apps.edge.commands import CommandProcessor
 from apps.edge.hardware import FeatherService, SimulatedHardware
+from apps.edge.presence.controller import DisplayController
 from apps.edge.voice.controller import VoiceController
 from packages.audio import SpeechError
 from packages.protocol import (
@@ -32,6 +33,7 @@ from packages.protocol import (
     Cancel,
     DeviceCommand,
     EdgeHello,
+    EdgePresenceState,
     ErrorEvent,
     Heartbeat,
     HelloPayload,
@@ -75,6 +77,9 @@ class EdgeRuntime:
         speaker=None,
         voice_clock=None,
         voice_utc_clock=None,
+        presence_sensor=None,
+        presence_clock=None,
+        presence_wall=None,
     ):
         self.settings = settings
         self.hardware = hardware or (
@@ -86,6 +91,13 @@ class EdgeRuntime:
             )
         )
         self.commands = CommandProcessor(settings.device_id, self.hardware, settings.journal_path)
+        self.display = DisplayController(
+            settings,
+            self.commands,
+            sensor=presence_sensor,
+            **({"clock": presence_clock} if presence_clock else {}),
+            **({"wall": presence_wall} if presence_wall else {}),
+        )
         self.connected = asyncio.Event()
         self._socket = None
         self._send_lock = asyncio.Lock()
@@ -164,7 +176,7 @@ class EdgeRuntime:
             if isinstance(event, DeviceCommand):
 
                 async def execute(command):
-                    ack = await self.commands.execute(command)
+                    ack = await self.display.execute(command)
                     await self._send(ack)
 
                 if len(self._command_tasks) >= 8:
@@ -232,7 +244,21 @@ class EdgeRuntime:
             )
             if self.voice:
                 await self.voice.publish()
+            await self._send(
+                EdgePresenceState(device_id=self.settings.device_id, payload=self.display.status)
+            )
             await asyncio.sleep(self.settings.heartbeat_interval)
+
+    async def _presence_updates(self):
+        while True:
+            status = await self.display.updates.get()
+            if self.connected.is_set():
+                try:
+                    await self._send(
+                        EdgePresenceState(device_id=self.settings.device_id, payload=status)
+                    )
+                except (EdgeOfflineError, ConnectionClosed, TimeoutError):
+                    pass
 
     async def _connection(self):
         endpoint = self.settings.server_url.rstrip("/") + f"/ws/edge/{self.settings.device_id}"
@@ -258,7 +284,7 @@ class EdgeRuntime:
             await self._send(
                 EdgeHello(
                     device_id=self.settings.device_id,
-                    payload=HelloPayload(capabilities=capabilities),
+                    payload=HelloPayload(capabilities=capabilities + ("presence",)),
                 )
             )
             tasks = [asyncio.create_task(self._receive()), asyncio.create_task(self._heartbeat())]
@@ -273,6 +299,10 @@ class EdgeRuntime:
 
     async def run(self):
         attempt = 0
+        local_tasks = [
+            asyncio.create_task(self.display.run()),
+            asyncio.create_task(self._presence_updates()),
+        ]
         try:
             if self.voice:
                 await self.voice.start()
@@ -311,6 +341,9 @@ class EdgeRuntime:
             for command_task in list(self._command_tasks):
                 command_task.cancel()
             await asyncio.gather(*self._command_tasks, return_exceptions=True)
+            for task in local_tasks:
+                task.cancel()
+            await asyncio.gather(*local_tasks, return_exceptions=True)
             try:
                 await self.hardware.close()
             finally:

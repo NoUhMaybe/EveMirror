@@ -8,3 +8,4 @@ python-dotenv==1.2.4
 typing-extensions==4.16.0
 typing-inspection==0.4.4
 websockets==17.2
+tzdata==2026.5

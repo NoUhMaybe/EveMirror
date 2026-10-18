@@ -7,6 +7,7 @@ from apps.config import BrowserGrant
 from apps.server.services.events import ApplicationSnapshot, SemanticEvent
 from apps.server.services.weather import Forecast
 from apps.server.speech.state import VoiceSnapshot
+from packages.presence import DisplayPolicyUpdate, PresenceStatus
 from packages.protocol import DeviceId
 
 
@@ -53,6 +54,7 @@ class BrowserHome(Strict):
 
 
 class BrowserFrame(Strict):
+    presence: PresenceStatus | None = None
     version: Literal[1] = 1
     epoch: UUID
     reset: bool
@@ -106,3 +108,7 @@ class BrowserAction(Strict):
 
 class MuteRequest(Strict):
     muted: bool = Field(strict=True)
+
+
+class DisplayRequest(DisplayPolicyUpdate):
+    request_id: UUID = Field(strict=False)

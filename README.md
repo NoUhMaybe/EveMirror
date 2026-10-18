@@ -1,7 +1,7 @@
 # EveMirror
 
 Local-first smart mirror modernization, developed on `codex/distributed-foundation`.
-The **phase 1–6 runtime** separates a lightweight Pi edge runtime from an
+The **phase 1–7 runtime** separates a lightweight Pi edge runtime from an
 authenticated FastAPI gateway and provider-independent text agent. The existing
 voice application remains available under `legacy/`.
 
@@ -17,6 +17,15 @@ installed dependencies, trusted model assets and explicit configuration; physica
 audio and real inference acceptance remain pending.
 Follow [implementation status](docs/IMPLEMENTATION_STATUS.md)
 for completed work, validation evidence and exact next steps.
+
+Phase 7 adds local presence policy, preferred brightness restoration, manual/night
+overrides, voice/alarm protection and authenticated dashboard settings through the
+existing Feather owner and replay journal. Only explicitly simulated sensors are
+supported until an actual model/protocol is selected and approved. Local policy
+works without the backend. See [presence](docs/PHASE7_PRESENCE.md), the
+[deployment/rollback plan](docs/PHASE7_DEPLOYMENT_PLAN.md) and staged
+[hardware acceptance](docs/PHASE7_HARDWARE_ACCEPTANCE.md). No production deployment,
+firmware/wiring change or physical acceptance was performed.
 
 ## Development
 

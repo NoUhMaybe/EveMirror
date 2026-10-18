@@ -1,5 +1,6 @@
 import { useDashboard } from "../app/AppProvider";
 import type { OrbProps } from "./AssistantOrb";
+import { PresenceSettings } from "./PresenceSettings";
 
 export type Preferences = {
   quality: OrbProps["quality"];
@@ -111,6 +112,7 @@ export function Settings({
           </dd>
         </div>
       </dl>
+      <PresenceSettings />
       {session?.permissions.debug && (
         <details>
           <summary>Event diagnostics</summary>

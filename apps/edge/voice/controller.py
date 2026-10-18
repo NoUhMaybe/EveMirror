@@ -113,6 +113,8 @@ class VoiceController:
         )
 
     async def publish(self):
+        if display := getattr(self.runtime, "display", None):
+            await display.activity("voice", self.state not in {"IDLE", "ERROR", "STARTING"})
         await self._send(
             EdgeVoiceState(
                 device_id=self.runtime.settings.device_id,
@@ -285,6 +287,8 @@ class VoiceController:
     async def _playback_activity(self, playing, alarm_id):
         self.playing = playing
         self._suppress_source()
+        if display := getattr(self.runtime, "display", None):
+            await display.activity("playback", playing)
         if self.machine:
             async with self.machine_lock:
                 self.machine.clear()
@@ -437,6 +441,10 @@ class VoiceController:
                     due = await asyncio.to_thread(
                         self.store.due, self.utc_clock(), self.settings.offline_lease_seconds
                     )
+                    if display := getattr(self.runtime, "display", None):
+                        # Includes already-attempted alarms until dismissed/synchronized away.
+                        # Audio attempt receipts remain unchanged and prevent replay.
+                        await display.activity("alarms", bool(due))
                     for timer in due:
                         identity = UUID(timer["alarm_id"])
                         # Reserve before output; unknown playback is never replayed.

@@ -9,11 +9,12 @@ from fastapi import HTTPException
 from apps.server.agent.messages import ToolCall
 from apps.server.browser.models import BrowserFrame
 from apps.server.browser.sessions import BrowserSessions
+from apps.server.gateway import GatewayError
 from apps.server.services.common import ServiceError
 from apps.server.speech.state import VoiceSnapshot
 from apps.server.tools.base import Principal, ToolContext
 from apps.server.tools.executor import ExecutionLedger
-from packages.protocol import Cancel, VoiceControl, VoiceControlPayload
+from packages.protocol import Cancel, SetDisplayPolicy, VoiceControl, VoiceControlPayload
 
 
 class BrowserService:
@@ -129,6 +130,7 @@ class BrowserService:
         model = getattr(self.settings, self.settings.llm_provider + "_model")
         return self.hub.redact(
             BrowserFrame(
+                presence=connection.state.presence if connection else None,
                 epoch=self.epoch,
                 reset=reset,
                 server_time=self.hub.clock().isoformat(),
@@ -205,6 +207,33 @@ class BrowserService:
                 except ServiceError:
                     self.home[device] = []
         return self.hub.redact(result.payload())
+
+    async def display(self, row, body):
+        device = row["device_id"]
+        if (
+            not self.config.devices[device].display_control
+            or not self.settings.agent.allow_mutations
+        ):
+            raise HTTPException(403, "browser_display_permission_required")
+        try:
+            ack = await self.gateway.command(
+                device,
+                uuid5(UUID(row["id"]), str(body.request_id)),
+                SetDisplayPolicy(
+                    action="set_display_policy",
+                    settings=body.settings,
+                    override_percent=body.override_percent,
+                    release_override=body.release_override,
+                ),
+            )
+        except GatewayError as exc:
+            raise HTTPException(exc.status_code, exc.code) from None
+        return {
+            "status": ack.payload.status,
+            "code": ack.payload.code,
+            "hardware": ack.payload.hardware.model_dump(mode="json"),
+            "replayed": ack.payload.replayed,
+        }
 
     async def mute(self, row, muted):
         device = row["device_id"]

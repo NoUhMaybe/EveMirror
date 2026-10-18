@@ -5,6 +5,21 @@ homelab VM or hardware deployment was modified during development.
 
 ## Install and validate
 
+Phase 7 validation also runs `python scripts/simulate_presence.py` and
+`python scripts/simulate_voice.py`. Presence tests use fake monotonic clocks,
+simulated readings and the real journal/transport, with no physical device access.
+Use `python scripts/preflight.py --role edge` for read-only readiness reporting;
+`--validate-config` verifies configured settings/assets without opening devices.
+A nonzero result means required readiness gates failed, including on this Windows
+development host. Do not install or change services to hide those findings.
+
+See the [deployment plan](PHASE7_DEPLOYMENT_PLAN.md) for disposable container CI,
+Linux speech-library installation checks and ARM64 wheel availability. Current
+Linux voice-edge pins need Python 3.11; the TFLite ARM64 wheel needs glibc >=2.34.
+Wheel downloads do not establish actual Pi compatibility. The
+[acceptance guide](PHASE7_HARDWARE_ACCEPTANCE.md) includes read-only host sampling,
+performance procedures and separately authorized physical stages.
+
 Use a separate virtual environment, Python 3.11–3.12, and Node 24.4+. Linux:
 
 ```sh

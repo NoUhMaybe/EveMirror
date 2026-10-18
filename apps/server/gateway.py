@@ -41,7 +41,12 @@ class Connection:
     async def send(self, message: Message):
         async with self.send_lock:
             async with asyncio.timeout(5):
-                await self.socket.send_text(message.model_dump_json())
+                exclude = (
+                    {"payload": {"edges": {"__all__": {"presence"}}}}
+                    if isinstance(message, StateSnapshot) and "presence" not in self.capabilities
+                    else None
+                )
+                await self.socket.send_text(message.model_dump_json(exclude=exclude))
 
 
 class Gateway:
@@ -98,6 +103,8 @@ class Gateway:
         connection = self.connections.get(device_id)
         if connection is None:
             raise GatewayError("device_offline", 503)
+        if payload.action == "set_display_policy" and "presence" not in connection.capabilities:
+            raise GatewayError("presence_not_supported", 409)
         pending = connection.pending.get(request_id)
         if pending:
             if pending[0] != payload:

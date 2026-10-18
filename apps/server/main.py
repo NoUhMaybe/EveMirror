@@ -50,6 +50,7 @@ from packages.protocol import (
     Command,
     DeviceAck,
     EdgeHello,
+    EdgePresenceState,
     EdgeVoiceState,
     ErrorEvent,
     ErrorPayload,
@@ -366,6 +367,15 @@ def create_app(
                         gateway.acknowledge(connection, event)
                     elif isinstance(event, EdgeVoiceState):
                         await voice.edge_update(device_id, event)
+                    elif isinstance(event, EdgePresenceState):
+                        if "presence" not in connection.capabilities:
+                            raise ValueError("Presence was not negotiated")
+                        previous = connection.state.presence
+                        connection.state = connection.state.model_copy(
+                            update={"presence": event.payload}
+                        )
+                        gateway.states[device_id] = connection.state
+                        await services.presence_update(device_id, previous, event.payload)
                     elif isinstance(event, VoiceControlAck):
                         browser.acknowledge(connection, event)
                     elif isinstance(event, PlaybackStatus):

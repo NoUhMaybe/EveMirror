@@ -541,7 +541,8 @@
             "mapping": {
               "get_status": "#/$defs/GetStatus",
               "set_brightness": "#/$defs/SetBrightness",
-              "set_display_mode": "#/$defs/SetDisplayMode"
+              "set_display_mode": "#/$defs/SetDisplayMode",
+              "set_display_policy": "#/$defs/SetDisplayPolicy"
             },
             "propertyName": "action"
           },
@@ -554,6 +555,9 @@
             },
             {
               "$ref": "#/$defs/SetDisplayMode"
+            },
+            {
+              "$ref": "#/$defs/SetDisplayPolicy"
             }
           ],
           "title": "Payload"
@@ -627,6 +631,62 @@
       "title": "EdgeHello",
       "type": "object"
     },
+    "EdgePresenceState": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "edge.presence_state",
+          "default": "edge.presence_state",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/PresenceStatus"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "EdgePresenceState",
+      "type": "object"
+    },
     "EdgeState": {
       "additionalProperties": false,
       "properties": {
@@ -656,6 +716,17 @@
         },
         "hardware": {
           "$ref": "#/$defs/HardwareStatus"
+        },
+        "presence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PresenceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1018,7 +1089,8 @@
               "voice",
               "playback",
               "timer_sync",
-              "voice_control"
+              "voice_control",
+              "presence"
             ],
             "type": "string"
           },
@@ -1027,6 +1099,42 @@
         }
       },
       "title": "HelloPayload",
+      "type": "object"
+    },
+    "NightSchedule": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "timezone": {
+          "default": "UTC",
+          "title": "Timezone",
+          "type": "string"
+        },
+        "start": {
+          "default": "22:00",
+          "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "default": "07:00",
+          "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "End",
+          "type": "string"
+        },
+        "percent": {
+          "default": 25,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "integer"
+        }
+      },
+      "title": "NightSchedule",
       "type": "object"
     },
     "PlaybackBegin": {
@@ -1433,6 +1541,218 @@
       "title": "PlaybackStatusPayload",
       "type": "object"
     },
+    "PresenceOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "present_confirm": {
+          "default": 1.0,
+          "maximum": 60,
+          "minimum": 0,
+          "title": "Present Confirm",
+          "type": "number"
+        },
+        "absent_confirm": {
+          "default": 5.0,
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Absent Confirm",
+          "type": "number"
+        },
+        "absence_timeout": {
+          "default": 120.0,
+          "maximum": 86400,
+          "minimum": 0,
+          "title": "Absence Timeout",
+          "type": "number"
+        },
+        "minimum_awake": {
+          "default": 15.0,
+          "maximum": 3600,
+          "minimum": 0,
+          "title": "Minimum Awake",
+          "type": "number"
+        },
+        "wake_cooldown": {
+          "default": 2.0,
+          "maximum": 60,
+          "minimum": 0,
+          "title": "Wake Cooldown",
+          "type": "number"
+        },
+        "activity_grace": {
+          "default": 15.0,
+          "maximum": 3600,
+          "minimum": 0,
+          "title": "Activity Grace",
+          "type": "number"
+        },
+        "manual_override_seconds": {
+          "default": 300.0,
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Manual Override Seconds",
+          "type": "number"
+        },
+        "preferred_percent": {
+          "default": 65,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Preferred Percent",
+          "type": "integer"
+        },
+        "unknown_policy": {
+          "default": "awake",
+          "enum": [
+            "awake",
+            "hold"
+          ],
+          "title": "Unknown Policy",
+          "type": "string"
+        },
+        "night": {
+          "$ref": "#/$defs/NightSchedule"
+        }
+      },
+      "title": "PresenceOptions",
+      "type": "object"
+    },
+    "PresenceReading": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "default": "UNKNOWN",
+          "enum": [
+            "PRESENT",
+            "ABSENT",
+            "UNKNOWN"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "health": {
+          "default": "unavailable",
+          "enum": [
+            "healthy",
+            "timeout",
+            "unavailable",
+            "malformed",
+            "disabled"
+          ],
+          "title": "Health",
+          "type": "string"
+        }
+      },
+      "title": "PresenceReading",
+      "type": "object"
+    },
+    "PresenceStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "settings": {
+          "$ref": "#/$defs/PresenceOptions"
+        },
+        "reading": {
+          "$ref": "#/$defs/PresenceReading"
+        },
+        "confirmed": {
+          "default": "UNKNOWN",
+          "enum": [
+            "PRESENT",
+            "ABSENT",
+            "UNKNOWN"
+          ],
+          "title": "Confirmed",
+          "type": "string"
+        },
+        "driver": {
+          "default": "none",
+          "enum": [
+            "none",
+            "simulated"
+          ],
+          "title": "Driver",
+          "type": "string"
+        },
+        "simulated": {
+          "default": false,
+          "title": "Simulated",
+          "type": "boolean"
+        },
+        "target_percent": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Percent"
+        },
+        "acknowledged_percent": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledged Percent"
+        },
+        "display": {
+          "default": "unknown",
+          "enum": [
+            "awake",
+            "asleep",
+            "unknown"
+          ],
+          "title": "Display",
+          "type": "string"
+        },
+        "reason": {
+          "default": "default",
+          "enum": [
+            "manual",
+            "activity",
+            "presence",
+            "night",
+            "default",
+            "unknown"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "override_active": {
+          "default": false,
+          "title": "Override Active",
+          "type": "boolean"
+        },
+        "activity_protected": {
+          "default": false,
+          "title": "Activity Protected",
+          "type": "boolean"
+        },
+        "uncertain": {
+          "default": false,
+          "title": "Uncertain",
+          "type": "boolean"
+        }
+      },
+      "title": "PresenceStatus",
+      "type": "object"
+    },
     "SetBrightness": {
       "additionalProperties": false,
       "properties": {
@@ -1477,6 +1797,51 @@
         "mode"
       ],
       "title": "SetDisplayMode",
+      "type": "object"
+    },
+    "SetDisplayPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PresenceOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "override_percent": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Override Percent"
+        },
+        "release_override": {
+          "default": false,
+          "title": "Release Override",
+          "type": "boolean"
+        },
+        "action": {
+          "const": "set_display_policy",
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "SetDisplayPolicy",
       "type": "object"
     },
     "SnapshotPayload": {
@@ -2165,6 +2530,7 @@
       "device.ack": "#/$defs/DeviceAck",
       "device.command": "#/$defs/DeviceCommand",
       "edge.hello": "#/$defs/EdgeHello",
+      "edge.presence_state": "#/$defs/EdgePresenceState",
       "error": "#/$defs/ErrorEvent",
       "heartbeat": "#/$defs/Heartbeat",
       "playback.begin": "#/$defs/PlaybackBegin",
@@ -2237,6 +2603,9 @@
     },
     {
       "$ref": "#/$defs/EdgeVoiceState"
+    },
+    {
+      "$ref": "#/$defs/EdgePresenceState"
     },
     {
       "$ref": "#/$defs/VoiceControl"

@@ -92,6 +92,44 @@ test.beforeEach(async ({ request }) => {
   await control(request, "reset");
 });
 
+test("presence settings show sensor health and journaled backlight transitions", async ({
+  page,
+  request,
+}) => {
+  await pair(page, request);
+  await page
+    .getByRole("button", { name: "Display settings", exact: true })
+    .click();
+  await page.getByLabel("Preferred brightness (%)").fill("42");
+  await page.getByLabel("Enable presence automation").check();
+  await page.getByRole("button", { name: "Save display policy" }).click();
+  const diagnostics = page.getByRole("region", {
+    name: "Presence and backlight",
+  });
+  await expect(diagnostics).toContainText("healthy · PRESENT · simulated");
+  await expect(diagnostics).toContainText("42%");
+  await control(request, "presence-absent");
+  await expect(page.getByTestId("presence-status")).toContainText(
+    "Backlight asleep",
+  );
+  await control(request, "presence-unknown");
+  await expect(page.getByTestId("presence-status")).toContainText(
+    "Backlight awake",
+  );
+  await page.getByRole("button", { name: "Backlight off temporarily" }).click();
+  await control(request, "presence-present");
+  await expect(page.getByTestId("presence-status")).toContainText(
+    "Backlight asleep",
+  );
+  await page.getByRole("button", { name: "Resume automatic policy" }).click();
+  await expect(page.getByTestId("presence-status")).toContainText(
+    "Backlight awake",
+  );
+  await page.screenshot({
+    path: `test-results/presence-${test.info().project.name}.png`,
+  });
+});
+
 test("paired browser follows a complete voice weather/timer turn, reload and alarm", async ({
   page,
   request,

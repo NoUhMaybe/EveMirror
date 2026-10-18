@@ -33,6 +33,13 @@ class SemanticEvent(BaseModel):
         "media.state_changed",
         "dashboard.show_view",
         "tool.execution_completed",
+        "presence.detected",
+        "presence.lost",
+        "presence.unknown",
+        "presence.unavailable",
+        "display.awake",
+        "display.asleep",
+        "display.brightness_changed",
     ]
     resource_id: str | None
     payload: dict[str, Any]

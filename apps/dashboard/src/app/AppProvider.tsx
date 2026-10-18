@@ -18,7 +18,7 @@ import {
   request,
   backoff,
 } from "../transport/client";
-import type { BrowserSession } from "../types/contracts";
+import type { BrowserSession, PresenceOptions } from "../types/contracts";
 
 type Context = {
   state: DashboardState;
@@ -28,6 +28,11 @@ type Context = {
   pair: () => Promise<void>;
   action: (name: string, args?: Record<string, unknown>) => Promise<void>;
   mute: (muted: boolean) => Promise<void>;
+  display: (update: {
+    settings?: PresenceOptions;
+    override_percent?: number;
+    release_override?: boolean;
+  }) => Promise<void>;
   cancel: () => Promise<void>;
   logout: () => Promise<void>;
   pending: boolean;
@@ -216,6 +221,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         view: (view) => action("dashboard.show_view", { view }),
         mute: async (muted) => {
           await write("/voice/mute", { muted });
+        },
+        display: async (update) => {
+          await write("/display", {
+            request_id: crypto.randomUUID(),
+            ...update,
+          });
         },
         cancel: async () => {
           await write("/voice/cancel");

@@ -21,7 +21,7 @@ infrastructure, firmware or deployed service was changed.
 | 4 Core tools | SQLite timers/alarms and durable native receipts; Open-Meteo service; restricted native HA/media; optional SearXNG; semantic views, scoped snapshots and durable event polling | Live endpoint/device acceptance and generic MCP durable transactions; Phase 5 adds alarm output/cache |
 | 5 Voice | Native-rate Pi capture/resampling, local Hey Eve/Silero; CPU INT8 faster-whisper; Piper; bounded acknowledged Pi output; half duplex/mute/stop/follow-up; durable independent offline alarms; scoped volatile voice state | Trusted deployment models and real inference/audio quality; physical Pi acceptance; Linux optional-role install; no AEC/barge-in or GPU claims |
 | 6 Dashboard | Scoped persistent browser cookies/pairing, CSRF/Origin, generated contracts, bounded polling/cursor recovery, modular React, playback subtitles/orb, backend weather/timers/alarms/home/media, portrait browser tests, shader/static quality presets, deployment examples | Physical native-resolution/standing-distance acceptance, Pi CPU/RSS/GPU/FPS/soak, live model/audio/HA, Linux/container/hosted CI run |
-| 7 Presence | Local hardware module survives network loss in simulation | Sensor interface/driver, debounce, absence/override/protected-activity policy, offline automatic dim/wake |
+| 7 Presence | Typed local sensor interface/simulation, deterministic debounce/absence/unknown policy, centralized journaled brightness, saved preference/manual/night, offline wake/alarms, browser diagnostics/settings and deployment/preflight/acceptance utilities | Real sensor model/protocol/installation, Pi/model/audio/physical acceptance, production deployment and eight-hour soak |
 | 8 Hardening | Compose/Dockerfile/systemd examples, health, security/privacy/recovery/backup/hardware docs | Linux/container deployment, actual recovery/security review, metrics and hardware benchmarks |
 
 The text agent is functional through the common orchestration path. Defaults select
@@ -31,6 +31,49 @@ is no provider fallback. HA/search and speech default to unconfigured/disabled.
 Negotiated voice routes PCM to local STT and the same agent; old transport-only
 peers keep their discard/injected consumer. React now uses the paired browser API;
 the relay remains only in the coherent old-stack rollback set.
+
+## Phase 7 software preparation
+
+Started from `3538e829f64f0758bb8f4d871c8a315082b812d5` after its
+[complete five-job CI matrix passed](https://github.com/NoUhMaybe/EveMirror/actions/runs/39157234157).
+Before editing, both Windows Python 3.11.9 and 3.12.10 passed all 316 Python tests;
+26 frontend tests, typecheck, build and nine Chromium scenarios passed.
+
+See [PHASE7_PRESENCE.md](PHASE7_PRESENCE.md) for delivered behavior and exact sensor
+limits; [deployment](PHASE7_DEPLOYMENT_PLAN.md) and
+[acceptance](PHASE7_HARDWARE_ACCEPTANCE.md) distinguish software, isolated Linux
+validation and pending real-device work. Existing cancellation/session regressions,
+half duplex, alarm/audio attempt receipts and command replay semantics remain.
+The complete regression suite includes an existing slow-serial test that caught
+blocking activity notifications during development; notifications now record
+protection immediately and a separate worker performs hardware writes.
+
+New tests cover fake-clock policy transitions/failures, no replay after uncertain
+ACK/cancellation/restart, settings/auth/CSRF, real loopback semantic events,
+offline local wake and undismissed alarm protection after audio and sensor loss,
+read-only preflight/counters, generated browser contracts and three new Chromium
+presence/settings scenarios. No prior test was suppressed or weakened.
+
+| Local check | Actual result |
+| --- | --- |
+| Complete Python suite, Windows 3.11.9 and 3.12.10 | **358 passed each**, including all 316 baseline cases and 42 new cases; existing upstream warning on 3.11 |
+| Frontend tests / Chromium | **27 passed / 12 passed**, retaining all 26 / 9 baseline cases |
+| Ruff lint/format, frontend format/typecheck/build, pip check and npm audit | Passed; 124 Python files; zero npm audit vulnerabilities |
+| Four protocol/application schemas and browser TS/validator drift | Passed |
+| Transport / voice / presence simulations | Passed using loopback and fake hardware/audio/models |
+| Documentation / private artifacts | 60 local links resolve; wheel downloads/test artifacts ignored; firmware and legacy unchanged |
+
+Cross-platform downloads verified 34 pinned ARM64 Python 3.11 wheels only after
+including glibc 2.34 tags (TFLite runtime requires that baseline). No ARM code was
+executed. Local preflight correctly reports this Windows host unsuitable for Pi
+deployment. Docker/installed WSL are unavailable locally; new hosted CI jobs build
+and exercise an isolated Linux container, install/import Linux voice libraries and
+check ARM64 wheel availability. Final run results accompany the milestone commit.
+
+No physical sensor protocol is claimed. Firmware and legacy rollback remain intact.
+No physical/deployed endpoint, service, boot/display setting, wiring or production
+database was modified. Actual model quality, Pi resource/FPS/thermal measurements,
+sensor accuracy, HDMI/ENA/DAC behavior and the eight-hour soak remain unverified.
 
 ## Phase 6 cancellation ordering repair
 
@@ -421,10 +464,10 @@ hardware and service/network addresses during deployment. No Intel Arc accelerat
 live inference/weather/HA or physical device test ran. Follow
 [SECURITY_AND_HARDWARE.md](SECURITY_AND_HARDWARE.md) for manual acceptance.
 
-## Exact next steps: deployment acceptance and Phase 7
+## Exact next steps: controlled deployment and physical acceptance
 
-1. Review and push the milestone when desired; inspect the Linux/Windows foundation
-   matrix and Ubuntu browser job. Build/run the prepared container in a test host.
+1. Inspect the milestone's Linux/Windows foundation, browser, container, Linux voice
+   install and ARM64 wheel jobs. Keep production deployment separately authorized.
 2. In a separately authorized deployment window, configure exact TLS origin, proxy
    trust, browser grants and pairing; retain database/build/profile rollback copies.
 3. Run Phase 5 real-model/audio and Phase 6 native portrait, reboot, renewal,
@@ -432,5 +475,6 @@ live inference/weather/HA or physical device test ran. Follow
    memory/CPU and eight-hour soak before selecting a quality default.
 4. Retire old supervisor/relay/voice modules together only when hardware rollback is
    no longer needed. Preserve firmware and independent hardware/audio utilities.
-5. Continue Phase 7 local presence policy only after its sensor/driver and protected
-   activity behavior are separately specified and authorized.
+5. Select the physical presence sensor and electrical design, implement its exact
+   reviewed protocol driver, then request installation/physical acceptance approval.
+   The implemented simulator and local policy do not establish sensor accuracy.

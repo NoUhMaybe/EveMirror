@@ -209,6 +209,44 @@ class Services:
             # A presentation failure cannot rewrite a successfully persisted action as failed.
             pass
 
+    async def presence_update(self, device, previous, current):
+        """Minimal notifications in the existing scoped ledger, never raw sensor history."""
+        if previous == current:
+            return
+        types = []
+        if previous is None or (previous.confirmed, previous.reading.health) != (
+            current.confirmed,
+            current.reading.health,
+        ):
+            types.append(
+                "presence.unavailable"
+                if current.reading.health in {"unavailable", "timeout", "malformed"}
+                else {"PRESENT": "presence.detected", "ABSENT": "presence.lost"}.get(
+                    current.confirmed, "presence.unknown"
+                )
+            )
+        if previous is None or previous.target_percent != current.target_percent:
+            types.append("display.brightness_changed")
+            if current.display != "unknown" and (
+                previous is None or previous.display != current.display
+            ):
+                types.append("display." + current.display)
+        try:
+            for event in types:
+                await self.events.publish(
+                    "voice:" + device,
+                    device,
+                    event,
+                    {
+                        "presence": current.confirmed,
+                        "health": current.reading.health,
+                        "target_percent": current.target_percent,
+                        "simulated": current.simulated,
+                    },
+                )
+        except ServiceError:
+            pass
+
     async def snapshot(self, principal):
         def capture(connection):
             now = millis(self.clock())

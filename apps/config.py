@@ -16,6 +16,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from packages.presence import PresenceOptions
 from packages.protocol import DeviceId
 
 
@@ -304,6 +305,7 @@ class MCPServer(PrivateConfig):
 
 
 class BrowserGrant(PrivateConfig):
+    display_control: bool = False
     captions: bool = False
     timers: bool = False
     home_control: bool = False
@@ -460,6 +462,11 @@ class EdgeSettings(BaseSettings):
     serial_timeout: float = Field(default=1, ge=0.1, le=3)
     simulate_hardware: bool = False
     journal_path: Path = Path("data/edge-commands.sqlite3")
+    presence: PresenceOptions = Field(default_factory=PresenceOptions)
+    presence_driver: Literal["none", "simulated"] = "none"
+    presence_poll_interval: float = Field(default=0.2, ge=0.02, le=5)
+    presence_read_timeout: float = Field(default=1, ge=0.02, le=10)
+    presence_reconnect_interval: float = Field(default=5, ge=0.1, le=60)
     voice: EdgeVoiceSettings = Field(default_factory=EdgeVoiceSettings)
     heartbeat_interval: float = Field(default=10, ge=0.2, le=30)
     reconnect_min: float = Field(default=1, ge=0.1, le=30)

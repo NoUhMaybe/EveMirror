@@ -1,5 +1,28 @@
 # Protocol v1
 
+Phase 7 adds negotiated `presence` capability and `edge.presence_state` with strict
+PresenceStatus (settings, reading/health, confirmed state, simulated marker,
+selected target/last ACK, reason, override/protection and uncertainty). Old edges
+receive snapshots with the new `presence` field omitted. Upgrade backend before
+the capability-advertising edge. New browser contracts/build must deploy together;
+old strict validators can reject new semantic event types until reload.
+
+`device.command` additionally accepts `set_display_policy` with finite validated
+settings, optional `override_percent` or `release_override`. Only a presence-capable
+edge receives that action. Ordinary set_brightness/display commands use the same
+arbiter; awake now restores preferred brightness. All retain original request-ID
+fingerprints, deadlines, receipts and replay rules. Backend/browser ACK means target
+acceptance, never measured illumination/fade completion. HDMI stays active.
+
+The existing semantic ledger adds `presence.detected|lost|unknown|unavailable`,
+`display.awake|asleep|brightness_changed`, scoped to the device voice principal.
+Only changed states publish; payloads contain minimal state/health/target/simulation
+data. BrowserFrame v1 adds typed optional `presence`. Cookie/Origin/CSRF protected
+`POST /api/browser/display` accepts request UUID and the policy update, requires
+explicit display_control plus mutation permission, and namespaces identity per
+browser session before the existing edge journal. No raw hardware endpoint is
+exposed. See [Phase 7](PHASE7_PRESENCE.md) for policy and recovery details.
+
 Python definitions: `packages/protocol/__init__.py`; portable discriminated JSON
 Schema: `packages/protocol/schema.json`. Regenerate with
 `python scripts/export_protocol.py`. The schema consistency test prevents drift.
@@ -64,7 +87,8 @@ do not configure multiple Uvicorn workers or independent replicas.
 This uses a discriminated payload instead of the historical untyped `arguments`
 example. Supported actions are `set_brightness`, `get_status`, and
 `set_display_mode` (`awake` / `sleep`). Sleep sends `B0`; awake currently sends
-`B100`. Presence overrides/restoration policy is a later phase.
+the configured preferred target through the Phase 7 arbiter. Presence/manual
+arbitration is described above; original firmware commands are unchanged.
 
 The edge sends `device.ack` with the original request ID and `payload.status`:
 

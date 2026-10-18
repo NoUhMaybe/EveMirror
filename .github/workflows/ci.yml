@@ -24,6 +24,8 @@ jobs:
       - run: python -m ruff format --check apps packages scripts tests
       - run: python -m pytest -q
       - run: python scripts/simulate.py
+      - run: python scripts/simulate_voice.py
+      - run: python scripts/simulate_presence.py
       - run: python scripts/export_protocol.py
       - run: python scripts/export_application.py
       - run: git diff --exit-code -- packages/protocol/schema.json packages/application/schema.json packages/application/voice.schema.json packages/application/browser.schema.json
@@ -64,3 +66,36 @@ jobs:
           name: dashboard-browser-artifacts
           path: apps/dashboard/test-results/
           if-no-files-found: ignore
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements/dev.lock
+      - run: python -m pip install --no-deps -e .
+      - run: docker build -f deploy/server/Dockerfile -t evemirror-ci:${{ github.sha }} .
+      - run: python scripts/container_acceptance.py --image evemirror-ci:${{ github.sha }} --allow-isolated-containers
+  arm64-wheels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Check Linux ARM64 wheel availability without installing or running Pi code
+        run: python -m pip download --only-binary=:all: --no-deps --platform manylinux2014_aarch64 --platform manylinux_2_27_aarch64 --platform manylinux_2_28_aarch64 --platform manylinux_2_34_aarch64 --python-version 311 --implementation cp --abi cp311 --dest "${{ runner.temp }}/eve-arm64-wheels" -r requirements/voice-edge.lock
+  linux-voice-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: sudo apt-get update && sudo apt-get install -y libportaudio2
+      - run: python -m pip install -r requirements/voice-edge.lock
+      - run: python -m pip install --no-deps -e .
+      - run: python -m pip check
+      - name: Import speech libraries without models or audio capture
+        run: python -c "import onnxruntime, openwakeword, soxr, sounddevice, serial; from apps.edge.voice.capture import WakeVAD; print('Linux speech imports passed; hardware and models untested')"

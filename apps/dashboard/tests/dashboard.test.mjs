@@ -13,6 +13,28 @@ import { parseFrame } from "../src/transport/contract.ts";
 import { frame, event, timer, stamp, session } from "./fixtures.mjs";
 
 const now = Date.parse(stamp);
+test("presence contract accepts explicit simulated targets and rejects invalid sensor data", () => {
+  const f = frame();
+  f.presence = {
+    simulated: true,
+    confirmed: "UNKNOWN",
+    reading: { state: "UNKNOWN", health: "unavailable" },
+    target_percent: 0,
+    acknowledged_percent: 0,
+    display: "asleep",
+  };
+  assert.equal(parseFrame(f).presence.display, "asleep");
+  for (const patch of [
+    { target_percent: 101 },
+    { confirmed: "MOTION" },
+    { reading: { state: "UNKNOWN", health: "disconnected-maybe" } },
+    { serial_port: "/dev/ttyUSB0" },
+  ]) {
+    const invalid = structuredClone(f);
+    Object.assign(invalid.presence, patch);
+    assert.throws(() => parseFrame(invalid));
+  }
+});
 for (const error of [
   "provider_unavailable",
   "transcription_failed",

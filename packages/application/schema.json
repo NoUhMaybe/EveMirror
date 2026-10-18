@@ -612,7 +612,14 @@
             "home.entity_changed",
             "media.state_changed",
             "dashboard.show_view",
-            "tool.execution_completed"
+            "tool.execution_completed",
+            "presence.detected",
+            "presence.lost",
+            "presence.unknown",
+            "presence.unavailable",
+            "display.awake",
+            "display.asleep",
+            "display.brightness_changed"
           ],
           "title": "Type",
           "type": "string"

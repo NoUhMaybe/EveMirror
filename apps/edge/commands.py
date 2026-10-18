@@ -13,9 +13,17 @@ from packages.protocol import AckPayload, DeviceAck, DeviceCommand, utc_now
 
 
 class CommandProcessor:
-    def __init__(self, device_id: str, hardware: FeatherService | SimulatedHardware, path: Path):
+    def __init__(
+        self,
+        device_id: str,
+        hardware: FeatherService | SimulatedHardware,
+        path: Path,
+        *,
+        clock=utc_now,
+    ):
         self.device_id = device_id
         self.hardware = hardware
+        self.clock = clock
         path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(path)
         if self._db.execute("PRAGMA user_version").fetchone()[0] not in {0, 1}:
@@ -30,7 +38,23 @@ class CommandProcessor:
             "(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, created REAL NOT NULL, ack TEXT)"
         )
         self._db.execute("PRAGMA user_version=1")
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS display_preferences "
+            "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+        )
         self._lock = asyncio.Lock()
+
+    def preference(self, key):
+        row = self._db.execute(
+            "SELECT value FROM display_preferences WHERE key=?", (key,)
+        ).fetchone()
+        return row[0] if row else None
+
+    def save_preference(self, key, value):
+        with self._db:
+            self._db.execute(
+                "INSERT OR REPLACE INTO display_preferences VALUES (?,?)", (key, value)
+            )
 
     def _ack(self, command: DeviceCommand, status: str, code: str = "ok") -> DeviceAck:
         return DeviceAck(
@@ -40,7 +64,7 @@ class CommandProcessor:
             payload=AckPayload(status=status, code=code, hardware=self.hardware.status),
         )
 
-    async def execute(self, command: DeviceCommand) -> DeviceAck:
+    async def execute(self, command: DeviceCommand, *, apply=None) -> DeviceAck:
         async with self._lock:
             if command.device_id != self.device_id:
                 return self._ack(command, "error", "conflict")
@@ -61,7 +85,7 @@ class CommandProcessor:
                     )
                 return self._ack(command, "error", "indeterminate")
 
-            now = utc_now()
+            now = self.clock()
             if command.expires_at <= now or command.timestamp > now + timedelta(seconds=5):
                 return self._ack(command, "error", "expired")
             with self._db:
@@ -78,6 +102,11 @@ class CommandProcessor:
                 action = command.payload.action
                 if action == "get_status":
                     ack = self._ack(command, "completed")
+                elif apply is not None:
+                    await apply(command.payload)
+                    ack = self._ack(command, "accepted")
+                elif action == "set_display_policy":
+                    ack = self._ack(command, "error", "unavailable")
                 else:
                     percent = (
                         command.payload.percent
