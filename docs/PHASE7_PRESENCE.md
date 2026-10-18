@@ -97,6 +97,9 @@ new database or event ledger. An invalid/missing ACK or interrupted write latche
 automation off, including after restart. Only a fresh authorized manual request
 can resolve it. Reusing an old ID returns its receipt and cannot renew an override,
 reapply old settings or initiate a second fade. Never delete the journal to retry.
+Policy intent and uncertainty share the command reservation transaction; clearing
+uncertainty shares the durable ACK transaction. This preserves atomic crash
+recovery without adding policy-only fsync commits to the command deadline.
 
 Saved settings are authoritative after restart; environment settings seed a new
 journal. Saved overrides restore only their bounded remaining UTC expiry, then use
@@ -140,6 +143,11 @@ so enabling automation alone does not fabricate a sensor.
 `edge.presence_state` uses the existing authenticated transport and `presence`
 capability. BrowserFrame exposes typed optional `presence`; minimal semantic
 notifications use the existing scoped event store. Identical reports are deduped.
+The gateway projection updates immediately; one lifecycle-owned worker coalesces
+the latest notification per configured device before writing that same event
+store. Slow telemetry persistence cannot hold the socket receive loop ahead of
+command ACKs, playback receipts or audio. Intermediate diagnostic states may
+coalesce under load; authoritative snapshots always show the latest accepted state.
 The dashboard shows sensor health, simulation, target/ACK, override and protection,
 with subtle sleep/wake status and no routine popups. Disconnected status is unknown.
 

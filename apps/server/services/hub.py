@@ -1,5 +1,6 @@
 """Application lifecycle and scoped state, sharing the existing gateway and agent."""
 
+import asyncio
 import json
 from datetime import datetime
 from uuid import uuid5
@@ -29,6 +30,10 @@ class Services:
         self.search = SearchService(settings.search, transports.get("search"))
         self.started = False
         self.explicit_views = {}
+        self.presence_pending, self.presence_seen = {}, {}
+        self.presence_wake, self.presence_idle = asyncio.Event(), asyncio.Event()
+        self.presence_idle.set()
+        self.presence_task = None
 
     async def start(self):
         await self.db.open()
@@ -37,9 +42,13 @@ class Services:
         await self.search.start()
         await self.timers.start()
         self.started = True
+        self.presence_task = asyncio.create_task(self._presence_notifications())
 
     async def close(self):
         self.started = False
+        if self.presence_task:
+            self.presence_task.cancel()
+            await asyncio.gather(self.presence_task, return_exceptions=True)
         await self.timers.close()
         await self.weather.close()
         await self.home.close()
@@ -209,9 +218,37 @@ class Services:
             # A presentation failure cannot rewrite a successfully persisted action as failed.
             pass
 
+    def queue_presence(self, device, current):
+        # One latest value per configured device: telemetry cannot block socket
+        # ACK/playback/audio processing or create an unbounded notification queue.
+        if self.started and device in self.settings.edge_tokens:
+            self.presence_pending[device] = current
+            self.presence_idle.clear()
+            self.presence_wake.set()
+
+    async def _presence_notifications(self):
+        try:
+            while True:
+                await self.presence_wake.wait()
+                self.presence_wake.clear()
+                batch, self.presence_pending = self.presence_pending, {}
+                for device, current in batch.items():
+                    await self.presence_update(device, self.presence_seen.get(device), current)
+                    self.presence_seen[device] = current
+                if not self.presence_pending:
+                    self.presence_idle.set()
+        finally:
+            self.presence_idle.set()
+
     async def presence_update(self, device, previous, current):
         """Minimal notifications in the existing scoped ledger, never raw sensor history."""
         if previous == current:
+            return
+        if (
+            previous is None
+            and current.reading.health == "disabled"
+            and current.target_percent is None
+        ):
             return
         types = []
         if previous is None or (previous.confirmed, previous.reading.health) != (

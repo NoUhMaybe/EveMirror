@@ -13,7 +13,7 @@ from apps.edge.runtime import EdgeRuntime
 from apps.server.agent.messages import LLMMessage, LLMResponse, ToolCall
 from apps.server.main import create_app
 from packages.presence import PresenceOptions, PresenceReading
-from packages.protocol import SyncedTimer
+from packages.protocol import GetStatus, SyncedTimer
 from tests.conftest import OPERATOR_TOKEN
 from tests.test_agent_api import FunctionProvider, final
 from tests.test_browser_security import ORIGIN, WRITE, configure, pair
@@ -82,6 +82,7 @@ async def test_presence_transport_events_and_browser_settings_receipts(settings,
                 await until(
                     lambda: app.state.gateway.states["mirror-1"].presence.display == "asleep"
                 )
+                await asyncio.wait_for(app.state.services.presence_idle.wait(), 5)
                 frame = (await client.get("/api/browser/state")).json()
                 assert frame["presence"]["simulated"] and frame["presence"]["target_percent"] == 0
                 events = await app.state.services.events.read(
@@ -109,6 +110,38 @@ async def test_presence_transport_events_and_browser_settings_receipts(settings,
                 )
                 assert hardware.commands[-1] == 65
         finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_presence_event_storage_never_blocks_command_acknowledgments(settings, tmp_path):
+    entered, release = asyncio.Event(), asyncio.Event()
+    async with live_server(settings) as (app, port):
+        original = app.state.services.presence_update
+
+        async def delayed(*args):
+            entered.set()
+            await release.wait()
+            await original(*args)
+
+        app.state.services.presence_update = delayed
+        edge = edge_settings(tmp_path, port)
+        edge.voice.enabled = False
+        runtime = EdgeRuntime(edge, SimulatedHardware())
+        task = asyncio.create_task(runtime.run())
+        try:
+            await asyncio.wait_for(runtime.connected.wait(), 5)
+            await asyncio.wait_for(entered.wait(), 5)
+            ack = await app.state.gateway.command(
+                "mirror-1", uuid4(), GetStatus(action="get_status")
+            )
+            assert ack.payload.status == "completed" and not release.is_set()
+            for _ in range(1000):
+                app.state.services.queue_presence("mirror-1", runtime.display.status)
+            app.state.services.queue_presence("foreign", runtime.display.status)
+            assert len(app.state.services.presence_pending) == 1
+        finally:
+            release.set()
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
 

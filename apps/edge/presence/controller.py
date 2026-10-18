@@ -87,16 +87,22 @@ class DisplayController:
                 self.updates.get_nowait()
             self.updates.put_nowait(status)
 
-    async def _write(self, percent):
+    def _prepare_target(self, percent):
         self.machine.selected(percent, self.clock())
-        if self.hardware.status.connected and self.hardware.status.target_percent == percent:
-            return
-        # Persist uncertainty BEFORE entering the driver; no automatic replay after a crash.
+        # Atomically commit intent/uncertainty with the command reservation.
         self.uncertain = True
         self._save()
-        await self.hardware.set_brightness(percent)
 
-    async def _manual(self, payload):
+    async def _apply_target(self, percent):
+        if not (self.hardware.status.connected and self.hardware.status.target_percent == percent):
+            await self.hardware.set_brightness(percent)
+
+    def _completed(self, ack):
+        # This preference and the ACK commit together; a crash cannot separate them.
+        self.uncertain = ack.payload.status == "error"
+        self._save()
+
+    def _manual(self, payload):
         m, now = self.machine, self.clock()
         if payload.action == "set_display_policy":
             if payload.settings is not None:
@@ -120,20 +126,22 @@ class DisplayController:
                 m.settings = m.settings.model_copy(update={"preferred_percent": percent})
             m.override(percent, now)
         self.managed = True
-        self._save()
         percent, self.reason = m.choose(now, self.wall())
-        # A fresh explicit request is the only way to resolve a latched uncertain write.
-        await self._write(percent)
+        self._prepare_target(percent)
 
     async def execute(self, command):
         async with self.lock:
             try:
-                ack = await self.commands.execute(command, apply=self._manual)
-                if ack.payload.status == "accepted" and not ack.payload.replayed:
-                    # Clear only AFTER the command receipt is durably committed.
-                    self.uncertain = False
-                    self._save()
-                return ack
+                return await self.commands.execute(
+                    command,
+                    prepare=self._manual,
+                    apply=lambda _: self._apply_target(self.machine.target),
+                    complete=self._completed,
+                )
+            except BaseException:
+                if command.payload.action != "get_status":
+                    self.uncertain = True
+                raise
             finally:
                 self._report()
 
@@ -156,12 +164,17 @@ class DisplayController:
                         payload=SetBrightness(action="set_brightness", percent=percent),
                     )
                     # Local policy writes use exactly the same durable replay journal.
-                    ack = await self.commands.execute(command, apply=lambda _: self._write(percent))
-                    if ack.payload.status == "error":
+                    try:
+                        await self.commands.execute(
+                            command,
+                            prepare=lambda _: self._prepare_target(percent),
+                            apply=lambda _: self._apply_target(percent),
+                            complete=self._completed,
+                        )
+                    except BaseException:
                         self.uncertain = True
-                    else:
-                        self.uncertain = False
-                    self._save()
+                        self._report()
+                        raise
             self._report()
 
     async def activity(self, name, active):

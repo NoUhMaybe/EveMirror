@@ -370,12 +370,11 @@ def create_app(
                     elif isinstance(event, EdgePresenceState):
                         if "presence" not in connection.capabilities:
                             raise ValueError("Presence was not negotiated")
-                        previous = connection.state.presence
                         connection.state = connection.state.model_copy(
                             update={"presence": event.payload}
                         )
                         gateway.states[device_id] = connection.state
-                        await services.presence_update(device_id, previous, event.payload)
+                        services.queue_presence(device_id, event.payload)
                     elif isinstance(event, VoiceControlAck):
                         browser.acknowledge(connection, event)
                     elif isinstance(event, PlaybackStatus):

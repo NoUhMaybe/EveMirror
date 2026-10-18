@@ -334,6 +334,15 @@ async def test_crash_after_driver_ack_before_journal_receipt_keeps_uncertainty(d
     assert hardware.commands == [40] and replacement.status.uncertain
 
 
+async def test_policy_and_uncertainty_share_existing_command_commits(display):
+    controller, hardware, clock, commands, *_ = display
+    statements = []
+    commands._db.set_trace_callback(statements.append)
+    await controller.execute(command(display, SetBrightness(action="set_brightness", percent=40)))
+    assert statements.count("COMMIT") == 2  # Reservation and receipt, with no extra policy fsyncs.
+    assert hardware.commands == [40] and not controller.status.uncertain
+
+
 async def test_concurrent_presence_and_manual_commands_serialize_with_fade_ack(display):
     controller, hardware, clock, *_ = display
     entered, release = asyncio.Event(), asyncio.Event()

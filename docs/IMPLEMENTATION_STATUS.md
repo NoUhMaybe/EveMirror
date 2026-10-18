@@ -56,7 +56,7 @@ presence/settings scenarios. No prior test was suppressed or weakened.
 
 | Local check | Actual result |
 | --- | --- |
-| Complete Python suite, Windows 3.11.9 and 3.12.10 | **359 passed each**, including all 316 baseline cases and 43 new cases; existing upstream warning on 3.11 |
+| Complete Python suite, Windows 3.11.9 and 3.12.10 | **361 passed each**, including all 316 baseline cases and 45 new cases; existing upstream warning on 3.11 |
 | Frontend tests / Chromium | **27 passed / 12 passed**, retaining all 26 / 9 baseline cases |
 | Ruff lint/format, frontend format/typecheck/build, pip check and npm audit | Passed; 124 Python files; zero npm audit vulnerabilities |
 | Four protocol/application schemas and browser TS/validator drift | Passed |
@@ -83,6 +83,24 @@ fix. Cleanup now occurs only when an established socket is lost; repeated failed
 attempts preserve local capture. Actual disconnect still cancels ordinary turns
 and preserves alarms. Focused cancellation/presence/recovery tests passed on both
 local Python versions before full 359-test validation.
+
+A deliberately blocked presence-event write also reproduced an ACK timeout in
+the original socket handler. Presence updates now change the gateway projection
+immediately and enqueue bounded, coalesced notifications for one lifecycle-owned
+worker in the existing services layer. No new ledger or database is added. The
+regression holds event persistence blocked while a status ACK succeeds and floods
+1,000 reports into the bounded queue. Existing command deadlines/assertions remain.
+Policy preferences and uncertainty also share the original command reservation/
+receipt transactions, avoiding extra disk commits on the ACK path. SQLite tracing
+verifies exactly two commits and crash tests retain the uncertain-write latch.
+
+Isolated Linux container acceptance passed in
+[run 39163009792](https://github.com/NoUhMaybe/EveMirror/actions/runs/39163009792):
+image/static hosting, TLS/WS, secure pairing/CSRF, nonroot/read-only root/model mount,
+SQLite backup/restore integrity, graceful stop and persistent sessions after restart.
+Linux Python 3.11 speech installation/imports and ARM64 wheel checks also passed.
+This is a core backend image with speech disabled and fixture model files; actual
+speech-model execution and ARM64 runtime/physical acceptance are still pending.
 
 ## Phase 6 cancellation ordering repair
 

@@ -51,10 +51,9 @@ class CommandProcessor:
         return row[0] if row else None
 
     def save_preference(self, key, value):
-        with self._db:
-            self._db.execute(
-                "INSERT OR REPLACE INTO display_preferences VALUES (?,?)", (key, value)
-            )
+        if not self._db.in_transaction:
+            raise RuntimeError("Preferences require the owning command transaction")
+        self._db.execute("INSERT OR REPLACE INTO display_preferences VALUES (?,?)", (key, value))
 
     def _ack(self, command: DeviceCommand, status: str, code: str = "ok") -> DeviceAck:
         return DeviceAck(
@@ -64,7 +63,9 @@ class CommandProcessor:
             payload=AckPayload(status=status, code=code, hardware=self.hardware.status),
         )
 
-    async def execute(self, command: DeviceCommand, *, apply=None) -> DeviceAck:
+    async def execute(
+        self, command: DeviceCommand, *, apply=None, prepare=None, complete=None
+    ) -> DeviceAck:
         async with self._lock:
             if command.device_id != self.device_id:
                 return self._ack(command, "error", "conflict")
@@ -97,6 +98,8 @@ class CommandProcessor:
                     "INSERT INTO commands VALUES (?, ?, ?, NULL)",
                     (str(command.request_id), fingerprint, now.timestamp()),
                 )
+                if prepare is not None and command.payload.action != "get_status":
+                    prepare(command.payload)
             # An interrupted operation remains indeterminate across restart.
             try:
                 action = command.payload.action
@@ -122,6 +125,8 @@ class CommandProcessor:
                     "UPDATE commands SET ack=? WHERE id=?",
                     (ack.model_dump_json(), str(command.request_id)),
                 )
+                if complete is not None and command.payload.action != "get_status":
+                    complete(ack)
             return ack
 
     def close(self):
