@@ -41,6 +41,65 @@
       "title": "AckPayload",
       "type": "object"
     },
+    "AlarmDismiss": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "alarm.dismiss",
+          "default": "alarm.dismiss",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "description": "Explicitly dismiss an alarm on this authenticated device",
+          "format": "uuid",
+          "title": "Payload",
+          "type": "string"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "AlarmDismiss",
+      "type": "object"
+    },
     "AudioBegin": {
       "additionalProperties": false,
       "properties": {
@@ -606,6 +665,150 @@
       "title": "EdgeState",
       "type": "object"
     },
+    "EdgeVoicePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "STARTING",
+            "IDLE",
+            "WAKE_DETECTED",
+            "LISTENING",
+            "UPLOADING",
+            "TRANSCRIBING",
+            "THINKING",
+            "TOOL_EXECUTING",
+            "SYNTHESIZING",
+            "DELIVERING",
+            "SPEAKING",
+            "FOLLOW_UP",
+            "ERROR"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "muted": {
+          "default": true,
+          "title": "Muted",
+          "type": "boolean"
+        },
+        "microphone": {
+          "default": false,
+          "title": "Microphone",
+          "type": "boolean"
+        },
+        "wake_ready": {
+          "default": false,
+          "title": "Wake Ready",
+          "type": "boolean"
+        },
+        "vad_ready": {
+          "default": false,
+          "title": "Vad Ready",
+          "type": "boolean"
+        },
+        "speaker": {
+          "default": false,
+          "title": "Speaker",
+          "type": "boolean"
+        },
+        "errors": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "input_level_rms": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Input Level Rms",
+          "type": "number"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "maxProperties": 16,
+          "title": "Metrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "EdgeVoicePayload",
+      "type": "object"
+    },
+    "EdgeVoiceState": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "voice.edge_state",
+          "default": "voice.edge_state",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/EdgeVoicePayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "EdgeVoiceState",
+      "type": "object"
+    },
     "ErrorEvent": {
       "additionalProperties": false,
       "properties": {
@@ -811,7 +1014,10 @@
           "items": {
             "enum": [
               "brightness",
-              "pcm_upload"
+              "pcm_upload",
+              "voice",
+              "playback",
+              "timer_sync"
             ],
             "type": "string"
           },
@@ -820,6 +1026,410 @@
         }
       },
       "title": "HelloPayload",
+      "type": "object"
+    },
+    "PlaybackBegin": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "playback.begin",
+          "default": "playback.begin",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/PlaybackBeginPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "session_id",
+        "payload"
+      ],
+      "title": "PlaybackBegin",
+      "type": "object"
+    },
+    "PlaybackBeginPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "encoding": {
+          "const": "pcm_s16le",
+          "default": "pcm_s16le",
+          "title": "Encoding",
+          "type": "string"
+        },
+        "sample_rate": {
+          "maximum": 48000,
+          "minimum": 8000,
+          "title": "Sample Rate",
+          "type": "integer"
+        },
+        "channels": {
+          "const": 1,
+          "default": 1,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "total_bytes": {
+          "exclusiveMinimum": 0,
+          "maximum": 5760000,
+          "multipleOf": 2,
+          "title": "Total Bytes",
+          "type": "integer"
+        },
+        "purpose": {
+          "default": "speech",
+          "enum": [
+            "speech",
+            "alarm"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "alarm_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alarm Id"
+        },
+        "sample_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 2880000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Count"
+        },
+        "duration_seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 60,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Seconds"
+        }
+      },
+      "required": [
+        "sample_rate",
+        "total_bytes"
+      ],
+      "title": "PlaybackBeginPayload",
+      "type": "object"
+    },
+    "PlaybackCancel": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "playback.cancel",
+          "default": "playback.cancel",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "device_id",
+        "session_id"
+      ],
+      "title": "PlaybackCancel",
+      "type": "object"
+    },
+    "PlaybackChunk": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "playback.chunk",
+          "default": "playback.chunk",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AudioChunkPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "session_id",
+        "payload"
+      ],
+      "title": "PlaybackChunk",
+      "type": "object"
+    },
+    "PlaybackEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "playback.end",
+          "default": "playback.end",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AudioEndPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "session_id",
+        "payload"
+      ],
+      "title": "PlaybackEnd",
+      "type": "object"
+    },
+    "PlaybackStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "playback.status",
+          "default": "playback.status",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/PlaybackStatusPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "session_id",
+        "payload"
+      ],
+      "title": "PlaybackStatus",
+      "type": "object"
+    },
+    "PlaybackStatusPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "accepted",
+            "buffered",
+            "started",
+            "progress",
+            "completed",
+            "cancelled",
+            "failed",
+            "indeterminate"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "next_sequence": {
+          "default": 0,
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Next Sequence",
+          "type": "integer"
+        },
+        "position_samples": {
+          "default": 0,
+          "maximum": 2880000,
+          "minimum": 0,
+          "title": "Position Samples",
+          "type": "integer"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "alarm_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alarm Id"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "PlaybackStatusPayload",
       "type": "object"
     },
     "SetBrightness": {
@@ -950,10 +1560,435 @@
       ],
       "title": "StateSnapshot",
       "type": "object"
+    },
+    "SyncedTimer": {
+      "additionalProperties": false,
+      "properties": {
+        "timer_id": {
+          "format": "uuid",
+          "title": "Timer Id",
+          "type": "string"
+        },
+        "alarm_id": {
+          "format": "uuid",
+          "title": "Alarm Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "RUNNING",
+            "PAUSED",
+            "EXPIRED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deadline"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "timer_id",
+        "alarm_id",
+        "status",
+        "deadline",
+        "version"
+      ],
+      "title": "SyncedTimer",
+      "type": "object"
+    },
+    "TimerSync": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "timer.sync",
+          "default": "timer.sync",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TimerSyncPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "TimerSync",
+      "type": "object"
+    },
+    "TimerSyncPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "generation": {
+          "format": "uuid",
+          "title": "Generation",
+          "type": "string"
+        },
+        "sequence": {
+          "maximum": 63,
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "final": {
+          "title": "Final",
+          "type": "boolean"
+        },
+        "timers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SyncedTimer"
+          },
+          "maxItems": 16,
+          "title": "Timers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "generation",
+        "sequence",
+        "final"
+      ],
+      "title": "TimerSyncPayload",
+      "type": "object"
+    },
+    "TimerSyncReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "timer.sync_received",
+          "default": "timer.sync_received",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TimerSyncReceiptPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "payload"
+      ],
+      "title": "TimerSyncReceipt",
+      "type": "object"
+    },
+    "TimerSyncReceiptPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "generation": {
+          "format": "uuid",
+          "title": "Generation",
+          "type": "string"
+        },
+        "status": {
+          "const": "stored",
+          "default": "stored",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation"
+      ],
+      "title": "TimerSyncReceiptPayload",
+      "type": "object"
+    },
+    "VoiceStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "const": "voice.status",
+          "default": "voice.status",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/VoiceStatusPayload"
+        }
+      },
+      "required": [
+        "device_id",
+        "session_id",
+        "payload"
+      ],
+      "title": "VoiceStatus",
+      "type": "object"
+    },
+    "VoiceStatusPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "STARTING",
+            "IDLE",
+            "WAKE_DETECTED",
+            "LISTENING",
+            "UPLOADING",
+            "TRANSCRIBING",
+            "THINKING",
+            "TOOL_EXECUTING",
+            "SYNTHESIZING",
+            "DELIVERING",
+            "SPEAKING",
+            "FOLLOW_UP",
+            "ERROR"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversation Id"
+        },
+        "transcript": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transcript"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "maxLength": 8192,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "stt_model": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stt Model"
+        },
+        "transcript_final": {
+          "default": true,
+          "title": "Transcript Final",
+          "type": "boolean"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool"
+        },
+        "tool_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "success",
+                "error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Status"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "follow_up_seconds": {
+          "default": 0,
+          "maximum": 60,
+          "minimum": 0,
+          "title": "Follow Up Seconds",
+          "type": "number"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "maxProperties": 16,
+          "title": "Metrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "VoiceStatusPayload",
+      "type": "object"
     }
   },
   "discriminator": {
     "mapping": {
+      "alarm.dismiss": "#/$defs/AlarmDismiss",
       "audio.begin": "#/$defs/AudioBegin",
       "audio.chunk": "#/$defs/AudioChunk",
       "audio.end": "#/$defs/AudioEnd",
@@ -963,8 +1998,17 @@
       "edge.hello": "#/$defs/EdgeHello",
       "error": "#/$defs/ErrorEvent",
       "heartbeat": "#/$defs/Heartbeat",
+      "playback.begin": "#/$defs/PlaybackBegin",
+      "playback.cancel": "#/$defs/PlaybackCancel",
+      "playback.chunk": "#/$defs/PlaybackChunk",
+      "playback.end": "#/$defs/PlaybackEnd",
+      "playback.status": "#/$defs/PlaybackStatus",
       "session.cancel": "#/$defs/Cancel",
-      "state.snapshot": "#/$defs/StateSnapshot"
+      "state.snapshot": "#/$defs/StateSnapshot",
+      "timer.sync": "#/$defs/TimerSync",
+      "timer.sync_received": "#/$defs/TimerSyncReceipt",
+      "voice.edge_state": "#/$defs/EdgeVoiceState",
+      "voice.status": "#/$defs/VoiceStatus"
     },
     "propertyName": "type"
   },
@@ -1001,6 +2045,36 @@
     },
     {
       "$ref": "#/$defs/ErrorEvent"
+    },
+    {
+      "$ref": "#/$defs/PlaybackBegin"
+    },
+    {
+      "$ref": "#/$defs/PlaybackChunk"
+    },
+    {
+      "$ref": "#/$defs/PlaybackEnd"
+    },
+    {
+      "$ref": "#/$defs/PlaybackCancel"
+    },
+    {
+      "$ref": "#/$defs/PlaybackStatus"
+    },
+    {
+      "$ref": "#/$defs/VoiceStatus"
+    },
+    {
+      "$ref": "#/$defs/EdgeVoiceState"
+    },
+    {
+      "$ref": "#/$defs/TimerSync"
+    },
+    {
+      "$ref": "#/$defs/TimerSyncReceipt"
+    },
+    {
+      "$ref": "#/$defs/AlarmDismiss"
     }
   ]
 }

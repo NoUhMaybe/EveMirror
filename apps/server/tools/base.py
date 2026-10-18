@@ -16,6 +16,7 @@ class Principal:
     device_ids: frozenset[str]
     allow_mutations: bool = False
     home_entities: frozenset[str] = frozenset()
+    allow_voice_state: bool = False
 
 
 @dataclass(frozen=True)

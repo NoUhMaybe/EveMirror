@@ -1,8 +1,10 @@
 FROM python:3.12-slim
+ARG EVE_INSTALL_SPEECH=0
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY requirements/ requirements/
 RUN pip install --no-cache-dir -r requirements/server.lock
+RUN if [ "$EVE_INSTALL_SPEECH" = "1" ]; then pip install --no-cache-dir -r requirements/voice-server.lock; fi
 COPY pyproject.toml ./
 COPY apps/ apps/
 COPY packages/ packages/

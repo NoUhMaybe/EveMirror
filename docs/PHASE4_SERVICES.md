@@ -7,6 +7,12 @@ HTTP fixtures; production code does not substitute fabricated device/weather dat
 No live Home Assistant, inference, weather, search or physical-device acceptance
 was performed. `legacy/` and the old dashboard relay remain available.
 
+Phase 5 subsequently adds local speech, Pi playback and durable offline alarm
+caching through these same services. Database migration 2 adds alarm-delivery
+receipts; playback is separate from timer acknowledgment. See
+[PHASE5_VOICE.md](PHASE5_VOICE.md) for current audio behavior and acceptance limits.
+This guide retains the Phase 4 service contracts and validation history.
+
 ## Start and configure
 
 Install the updated `requirements/dev.lock` and `pip install --no-deps -e .` in the

@@ -42,6 +42,7 @@ class Orchestrator:
         request_id: UUID,
         session_id: UUID | None = None,
         device_id: str | None = None,
+        on_phase=None,
     ) -> dict:
         if self.provider is None:
             raise SessionError("provider_not_configured", 503)
@@ -61,7 +62,7 @@ class Orchestrator:
         claim = [False]
         task = asyncio.create_task(
             self._generate(
-                session, principal, user, request_id, summaries, usage, fingerprint, claim
+                session, principal, user, request_id, summaries, usage, fingerprint, claim, on_phase
             )
         )
         session.task = task
@@ -115,7 +116,7 @@ class Orchestrator:
         return result
 
     async def _generate(
-        self, session, principal, user, request_id, summaries, usage, fingerprint, claim
+        self, session, principal, user, request_id, summaries, usage, fingerprint, claim, on_phase
     ):
         limits = self.settings.agent
         async with asyncio.timeout(limits.turn_timeout):
@@ -144,6 +145,8 @@ class Orchestrator:
                     or len(messages) > limits.max_context_messages
                 ):
                     raise ProviderError("context_limit")
+                if on_phase:
+                    await on_phase("THINKING", {})
                 response = await self.provider.generate(
                     messages, tools, generation_settings(self.settings)
                 )
@@ -164,7 +167,22 @@ class Orchestrator:
                     raise ProviderError("tool_limit")
                 # Preserve model order. Mutations are never speculatively parallelized.
                 for call in calls:
+                    tool_started = time.monotonic()
+                    if on_phase:
+                        await on_phase("TOOL_EXECUTING", {"tool": call.name})
                     result = await self.executor.execute(call, context, ledger)
+                    if on_phase:
+                        await on_phase(
+                            "TOOL_EXECUTING",
+                            {
+                                "tool": call.name,
+                                "status": result.status,
+                                "unverified": isinstance(result.data, dict)
+                                and result.data.get("acknowledged") is True
+                                and result.data.get("verified") is False,
+                                "latency_ms": (time.monotonic() - tool_started) * 1000,
+                            },
+                        )
                     if self.services:
                         await self.services.observe(call, result, context)
                     summaries.append(

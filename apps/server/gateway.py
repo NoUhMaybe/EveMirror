@@ -36,6 +36,7 @@ class Connection:
     pending: dict[UUID, tuple[Command, asyncio.Future]] = field(default_factory=dict)
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     last_hardware_reported_at: datetime | None = None
+    capabilities: frozenset[str] = field(default_factory=frozenset)
 
     async def send(self, message: Message):
         async with self.send_lock:

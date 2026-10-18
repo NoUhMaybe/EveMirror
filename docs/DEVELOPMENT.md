@@ -29,9 +29,12 @@ The `requirements/*.lock` files pin the tested foundation dependency versions.
 `common` contains protocol/config/transport; `edge` adds pyserial; `server` adds
 FastAPI/Uvicorn, HTTP, official OpenAI/Anthropic/MCP SDKs, IANA tzdata and JSON Schema validation;
 `dev` adds test/lint/legacy-weather HTTP dependencies. Edge locks do not include
-provider or MCP SDKs. Native
-audio, Torch, transcription and Piper packages are deliberately outside these
-foundation environments. Linux/Pi wheels and deployment remain CI/hardware checks.
+provider or MCP SDKs. Native audio, transcription and Piper packages are outside
+the base roles. `audio.lock` adds NumPy/SoXR to development tests; `voice-edge.lock`
+and `voice-server.lock` supply isolated optional runtime dependencies. Neither
+voice role needs Torch or NVIDIA packages. Linux voice-edge requires Python 3.11
+because openWakeWord's Linux dependency includes a Python-3.11 TFLite wheel;
+our actual wake/VAD inference uses ONNX. Linux/Pi installation remains unverified.
 The old unpinned `legacy/client/requirements.txt` and `legacy/agent/requirements.txt`
 still describe the legacy environment, including its NVIDIA dependencies.
 
@@ -61,7 +64,7 @@ In another environment set `EVE_EDGE_DEVICE_ID`, matching `EVE_EDGE_TOKEN`, and
 python -m apps.edge.runtime --simulate-hardware
 ```
 
-Use `--upload-wav path/to/fixture.wav` to upload one existing 16 kHz PCM16 mono
+With voice disabled, use `--upload-wav path/to/fixture.wav` to upload one existing 16 kHz PCM16 mono
 fixture and exit. It does not transcribe the fixture. Normal runtime remains
 connected and accepts typed hardware commands.
 
@@ -96,7 +99,9 @@ and review `deploy/edge/evemirror-edge.service`. Set matching credentials and th
 verified data-interface path in `/etc/evemirror/edge.env` using the example.
 Restrict credentials to the administrator/service user. The unit creates a private
 state directory and restarts failures. Do not enable it alongside the old serial
-controller. Kiosk, wake capture and presence deployment are pending later phases.
+controller. Kiosk and presence deployment remain later phases. Optional voice uses the same
+single unit with `voice-edge.lock`; configure private manifests and audio devices
+as described in [PHASE5_VOICE.md](PHASE5_VOICE.md). It defaults to muted.
 
 ## Model artifacts
 
@@ -119,8 +124,11 @@ Run `python scripts/verify_assets.py --manifest path/to/private-manifest.json --
 Missing, empty, corrupted files and paths outside the artifact directory fail
 verification. Hashing an untrusted download and then accepting that same hash is
 not authenticity verification. Legacy scripts still use their historical model
-paths under `training/wake_word/` and their existing download behavior; wiring verified discovery into the new wake runtime is
-an explicit phase-5 task. Do not commit models or training datasets during migration.
+paths under `training/wake_word/` and their existing download behavior. Phase 5's
+new wake/VAD and STT/Piper paths require verified manifests and never implicitly
+download weights. See [PHASE5_VOICE.md](PHASE5_VOICE.md) for role-specific manifests,
+the complete Whisper local directory and explicit installation/smoke commands.
+Do not commit models or training datasets during migration.
 
 ## Recovery and backup
 
@@ -154,14 +162,20 @@ the destination directory. It uses SQLite's online backup API and requires a new
 destination file. Stop the backend before restoring. Old backups can lack newer
 turn/action identities, so restoration does not authorize replaying uncertain
 requests. See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for storage, alarm and
-receipt-capacity policies. No audible alarm or offline edge fallback is implemented.
+receipt-capacity policies. Phase 5 adds a separate `edge-voice.sqlite3` journal for
+mute, timer cache, alarm attempt receipts and offline dismissals. Back it up with
+the same SQLite backup API. Preserve its device identity and replay records;
+unknown attempts must not be replayed. Its default offline cache lease is 24 hours.
 
 For Zabbix, monitor `/health/live` locally and authenticated `/api/health` for edge
 online status, last heartbeat, serial metadata, error count and audio counters.
 Provider configuration is visible at `/api/agent/status`; it is not a live
 inference health probe. Service diagnostics also report database/weather/home/search
 configuration and availability; they are not full upstream health probes. HA and
-search default to unconfigured; STT/TTS are pending. Latency histograms, resource
+search default to unconfigured; STT/TTS are optional and disabled until configured.
+Nested voice health includes local engine readiness/busy/errors and last edge
+audio state. Voice captions use a separate scoped volatile API, not durable logs.
+Latency histograms, resource
 metrics and full readiness probes remain production-hardening work.
 
 ## Phase 3 text development
@@ -212,4 +226,22 @@ Regenerate both contracts with `python scripts/export_protocol.py` and
 timer recovery/races, WAL backup/restore, weather/DST/stale cases, restricted HA/media,
 search security, private snapshots/events and all three real provider adapters
 using mocked HTTP. No live service is required. Retain `legacy/` until voice and
-dashboard consumers migrate in later phases.
+dashboard consumers and physical voice acceptance complete.
+
+
+## Phase 5 voice development
+
+Use [PHASE5_VOICE.md](PHASE5_VOICE.md) for isolated edge/server dependency locks,
+private asset manifests, explicit speech/device permissions, capture/output devices,
+mute controls, finite alarm tones and startup/recovery. `scripts/simulate_voice.py`
+runs full authenticated loopback turns using fixture audio/models for all three
+provider adapters, plus offline/restart and privacy failures. It needs no physical
+audio device or model. `scripts/speech_smoke.py --help` describes explicit local
+real-engine checks with trusted assets and existing fixtures; these were not run
+against real models during implementation.
+
+Server containers opt into speech with build argument `EVE_INSTALL_SPEECH=1` and
+a reviewed read-only asset mount; no model is included in the image. Edge software
+mute suppresses capture processing, not the operating system microphone device.
+Programmatic voice stop and network loss preserve active alarms; explicit dismissal
+is separate. Half-duplex suppression has no acoustic echo cancellation/barge-in.

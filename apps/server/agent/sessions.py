@@ -32,6 +32,7 @@ class Session:
     history: list[list[LLMMessage]] = field(default_factory=list, repr=False)
     receipts: dict[UUID, tuple[str, dict | None]] = field(default_factory=dict, repr=False)
     task: asyncio.Task | None = field(default=None, repr=False)
+    keep_until: float = 0
 
     def messages(self):
         return [message for turn in self.history for message in turn]
@@ -48,6 +49,7 @@ class SessionStore:
             sid
             for sid, session in self.sessions.items()
             if session.task is None
+            and self.clock() >= session.keep_until
             and self.clock() - session.touched >= self.limits.session_idle_seconds
         }
         for sid in expired:

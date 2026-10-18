@@ -1,7 +1,7 @@
 # EveMirror
 
 Local-first smart mirror modernization, developed on `codex/distributed-foundation`.
-The **phase 1–4 backend** separates a lightweight Pi edge runtime from an
+The **phase 1–5 runtime** separates a lightweight Pi edge runtime from an
 authenticated FastAPI gateway and provider-independent text agent. The existing
 voice application remains available under `legacy/`.
 
@@ -10,7 +10,11 @@ support native Ollama/OpenAI/Anthropic tool calling, permission checks, approved
 MCP tools and temporary conversations. Persistent timers/alarms, Open-Meteo weather,
 restricted Home Assistant/media controls, optional SearXNG search and scoped
 semantic state/events use that same agent. HA and search require configuration;
-mutations require explicit permission. Speech processing and playback are pending.
+mutations require explicit permission. Optional distributed voice adds local Pi
+wake/VAD capture, server CPU INT8 faster-whisper and Piper, bounded Pi playback,
+follow-up listening and durable offline alarm scheduling. Voice requires separately
+installed dependencies, trusted model assets and explicit configuration; physical
+audio and real inference acceptance remain pending.
 Follow [implementation status](docs/IMPLEMENTATION_STATUS.md)
 for completed work, validation evidence and exact next steps.
 
@@ -18,6 +22,8 @@ for completed work, validation evidence and exact next steps.
 
 Use Python 3.11 or 3.12 and Node 24.4+. On Windows, use `npm.cmd` to avoid changing
 PowerShell execution policy. Preserve the existing `.venv` for the legacy voice stack.
+The optional Linux voice-edge dependency set requires Python 3.11; see the
+[Phase 5 setup guide](docs/PHASE5_VOICE.md) for isolated role environments.
 
 ```powershell
 py -3.12 -m venv .venv-dev
@@ -66,6 +72,20 @@ and [the Phase 4 guide](docs/PHASE4_SERVICES.md) for tools, database backup,
 HA/media/search configuration, permissions and recovery. Automated service tests
 use fixtures; live integrations and audible alarms remain unverified.
 
+## Distributed voice
+
+Follow [PHASE5_VOICE.md](docs/PHASE5_VOICE.md) to install `voice-edge.lock` on the
+Pi and `voice-server.lock` on the server, verify private model manifests, configure
+device-specific voice grants and select audio devices. Voice defaults to disabled
+and the edge defaults to muted. The production path uses the same authenticated
+socket, agent, permissions and tools as text; audio stays in memory. Independent
+alarms use a durable edge cache and generated local tones without inference.
+
+`python scripts/simulate_voice.py` exercises the complete socket path with fixture
+models and speakers. Real-engine smoke commands and the pending Pi acceptance
+checklist are in the guide. No real microphone, speaker or model was exercised by
+those simulated scenarios. Keep the legacy relay until the dashboard migrates.
+
 ## Further documentation
 
 - [Audit and retained interfaces](docs/BASELINE.md)
@@ -73,6 +93,7 @@ use fixtures; live integrations and audible alarms remain unverified.
 - [Protocol and failure semantics](docs/PROTOCOL.md)
 - [Setup, recovery and configuration](docs/DEVELOPMENT.md)
 - [Persistent timers, weather, home/media, search and semantic state](docs/PHASE4_SERVICES.md)
+- [Distributed voice, local models, playback and offline alarms](docs/PHASE5_VOICE.md)
 - [Security, privacy and hardware verification](docs/SECURITY_AND_HARDWARE.md)
 - [Repository layout and moved paths](docs/REPOSITORY_LAYOUT.md)
 - [Legacy voice startup](legacy/README.md)
@@ -86,7 +107,7 @@ flashes or changes connected devices automatically.
 
 ```text
 apps/                Edge runtime, backend and React dashboard
-packages/            Device/application schemas and shared weather normalization
+packages/            Schemas, audio/asset helpers and shared weather normalization
 firmware/feather_m4/  Preserved CircuitPython firmware
 legacy/              Working older voice agent and microphone client
 training/wake_word/   Wake-word training tools and ignored local assets

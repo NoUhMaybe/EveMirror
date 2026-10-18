@@ -1,5 +1,5 @@
 [Unit]
-Description=Eve Edge authenticated transport and Feather owner
+Description=Eve Edge voice, authenticated transport and Feather owner
 After=network.target sound.target
 
 [Service]
@@ -9,6 +9,8 @@ Group=evemirror
 SupplementaryGroups=audio dialout
 WorkingDirectory=/var/lib/evemirror
 EnvironmentFile=/etc/evemirror/edge.env
+# Voice requires requirements/voice-edge.lock (Linux Python 3.11), verified assets,
+# and explicit VOICE__ENABLED/unmute configuration. This remains one supervisor.
 ExecStart=/opt/evemirror/.venv/bin/python -m apps.edge.runtime
 Restart=on-failure
 RestartSec=3

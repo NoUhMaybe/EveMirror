@@ -1,0 +1,8 @@
+{
+  "whisper_model": {"path": "whisper/model.bin", "sha256": "<trusted-sha256>"},
+  "whisper_config": {"path": "whisper/config.json", "sha256": "<trusted-sha256>"},
+  "whisper_tokenizer": {"path": "whisper/tokenizer.json", "sha256": "<trusted-sha256>"},
+  "whisper_vocabulary": {"path": "whisper/vocabulary.json", "sha256": "<trusted-sha256>"},
+  "piper_voice": {"path": "piper/voice.onnx", "sha256": "<trusted-sha256>"},
+  "piper_config": {"path": "piper/voice.onnx.json", "sha256": "<trusted-sha256>"}
+}

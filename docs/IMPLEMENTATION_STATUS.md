@@ -1,10 +1,12 @@
-# Implementation status — 2026-10-17
+# Implementation status - 2026-10-18
 
-Branch: `codex/distributed-foundation`; Phase 4 started from clean `eb5830b`.
-Persistent timers/alarms, backend weather, restricted native HA/media, optional
-search and scoped semantic state now extend the existing Phase 3 agent.
-Voice integration and dashboard migration remain later milestones.
-No live hardware, infrastructure, firmware or service credentials were changed.
+Branch: `codex/distributed-foundation`; Phase 5 started from clean
+`1a50bc3fc3499ad196e5f4422763935c4cc366a5` (Phase 4).
+Distributed voice now extends the existing authenticated edge socket, common
+three-provider agent/tools and persistent timers. Voice is optional and requires
+trusted local assets, role-specific dependencies and explicit grants. Physical
+Pi audio and real-model inference acceptance remain pending. No live hardware,
+infrastructure, firmware or deployed service was changed.
 
 ## Phase results
 
@@ -13,8 +15,8 @@ No live hardware, infrastructure, firmware or service credentials were changed.
 | 1 Audit/foundation | Audit, architecture, branch, protocol/JSON Schema, redacted settings, pinned dependencies, CI, asset verifier, generated-file cleanup | Hosted CI matrix unrun; verified model discovery not wired into old listener |
 | 2 Edge/server | FastAPI gateway, scoped auth, outbound edge socket, heartbeats/reconnect, snapshots, correlated commands, exact Feather ACKs, durable replay journal, cancellable PCM upload | Mock/real-loopback validation passed; physical Pi/Feather acceptance pending |
 | 3 Providers/registry | Native Ollama, official OpenAI Responses and Anthropic Messages adapters; bounded structured tool loop; typed registry/permissions; real MCP stdio/HTTP; temporary isolated sessions; authenticated text API/CLI | Non-streaming; live model/API quality and deployed endpoints unverified; sensitive confirmation flow and generic durable MCP action journal deferred |
-| 4 Core tools | SQLite timers/alarms and durable native receipts; Open-Meteo service; restricted native HA/media; optional SearXNG; semantic views, scoped snapshots and durable event polling | Live endpoint/device acceptance; audible alarms and offline edge fallback; generic MCP durable transactions remain deferred |
-| 5 Voice | Audio transport and injected consumer interface only | Wake/VAD capture integration, STT, synthesis, Pi playback/cancellation, mute/echo suppression and follow-up |
+| 4 Core tools | SQLite timers/alarms and durable native receipts; Open-Meteo service; restricted native HA/media; optional SearXNG; semantic views, scoped snapshots and durable event polling | Live endpoint/device acceptance and generic MCP durable transactions; Phase 5 adds alarm output/cache |
+| 5 Voice | Native-rate Pi capture/resampling, local Hey Eve/Silero; CPU INT8 faster-whisper; Piper; bounded acknowledged Pi output; half duplex/mute/stop/follow-up; durable independent offline alarms; scoped volatile voice state | Trusted deployment models and real inference/audio quality; physical Pi acceptance; Linux optional-role install; no AEC/barge-in or GPU claims |
 | 6 Dashboard | Extracted weather normalization, actual weekly/daily values, null/stale handling, cache invalidation, repaired TypeScript/build, pure tests | Componentization, browser auth/transport, state machine, reconnect/snapshots, real timer/home/media widgets, portrait/performance checks |
 | 7 Presence | Local hardware module survives network loss in simulation | Sensor interface/driver, debounce, absence/override/protected-activity policy, offline automatic dim/wake |
 | 8 Hardening | Compose/Dockerfile/systemd examples, health, security/privacy/recovery/backup/hardware docs | Linux/container deployment, actual recovery/security review, browser sessions, metrics and hardware benchmarks |
@@ -22,10 +24,65 @@ No live hardware, infrastructure, firmware or service credentials were changed.
 The text agent is functional through the common orchestration path. Defaults select
 Ollama, but a model must be explicitly configured; otherwise text turns report 503
 while the existing gateway still runs. Cloud requires explicit opt-in and there
-is no provider fallback. HA/search default to unconfigured, STT/TTS are pending, the default audio consumer
-discards PCM after receipt, and the browser still uses the legacy relay.
+is no provider fallback. HA/search and speech default to unconfigured/disabled.
+Negotiated voice routes PCM to local STT and the same agent; old transport-only
+peers keep their discard/injected consumer. React still uses the legacy relay.
 
-## Phase 4 delivery and actual validation
+## Phase 5 delivery and actual validation
+
+See [PHASE5_VOICE.md](PHASE5_VOICE.md) for setup, complete model manifests, voice
+identity/permissions, audio framing, state/caption contracts, offline policy,
+recovery, manual acceptance and legacy inventory.
+
+- `apps/edge/voice/`: lazy ONNX openWakeWord/Silero, continuous native-rate capture,
+  real stateful SoXR conversion, bounded VAD recording; one prioritized speaker
+  manager, software receipts, half duplex, mute, explicit stop and follow-up.
+- `apps/server/speech/`: reusable local CPU INT8 faster-whisper and Piper workers,
+  cancellation/busy ownership, bounded output delivery, scoped common-agent turns,
+  safe tool-failure wording, metrics and volatile caption snapshots.
+- Backend migration 2 and a separate device-bound edge voice journal implement
+  independent local alarm tones, complete timer-cache sync/storage ACKs, offline
+  lease, durable attempt deduplication, receipt reconciliation and explicit dismissal.
+  Sound output never implicitly acknowledges the authoritative pending timer.
+- Shared asset verification and PCM/metadata helpers; additive negotiated v1 voice
+  messages; separate generated voice HTTP schema. Original application v1 is
+  unchanged. Optional role locks, deployment examples and real-engine smoke CLI
+  are included; package version is 0.5.0. Firmware/hardware logic and legacy runtime
+  modules are preserved. The dashboard relay remains necessary until Phase 6.
+
+Fresh ignored `.venv-phase5-verify`, Windows Python 3.12.10: installed the pinned
+`dev.lock`, `voice-edge.lock` and `voice-server.lock`, then editable package 0.5.0.
+
+| Check | Actual result |
+|---|---|
+| Full Python suite | **271 passed**, including all 218 Phase 4 tests and 53 new voice cases |
+| Complete voice path, three provider adapters | Passed over real authenticated loopback HTTP/WS with fixture mic/wake/VAD/STT/TTS/speaker and mocked Ollama/OpenAI/Anthropic HTTP: HA off + tomorrow weather, follow-up daily view, 35% brightness and timer |
+| Recovery, privacy and independent output | Passed: missing speech/grant, blank speech, tool/provider/STT/TTS/output failure, cancellation/disconnect/reconnect, no overlap, follow-up expiry, delegated caption isolation/TTL, two-device grants, slow hardware responsiveness, mute/stop preserving alarms |
+| Durable alarm delivery | Passed with fake clocks and fixture output: offline timers, pause/cancel, priority, failed status sends, lost receipts, edge/backend reboot, deduplication, unknown attempts and explicit dismissal |
+| DSP and adapter binding | Real NumPy/SoXR rate/duration/anti-alias checks; fixture ONNX/PortAudio/model bindings validate local-only CPU INT8, assets, metadata, model reuse and timeout worker ownership |
+| Ruff check / format; pinned install / pip check | Passed; 102 Python files; no broken requirements |
+| Schemas | Device/audio/voice and separate voice HTTP generated consistently; original application v1 unchanged |
+| Original loopback transport simulation | Passed: simulated 35% ACK and 16000 in-memory PCM bytes |
+| Frontend tests / typecheck / production build | **4 passed** / passed / passed; existing 1.026 MB JS / 284 KB gzip bundle warning |
+| Examples / CLI / links / ignores | YAML, active env samples, optional grants, diagnostic help, local documentation links and private/runtime ignore rules checked without live connections |
+
+No model inference, physical microphone/speaker, Pi, HA/weather/search/cloud endpoint,
+Linux/Python 3.11, container/systemd deployment, hosted CI or GPU benchmark ran.
+Real local speech implementations are present; trusted deployment assets and manual
+acceptance are required. Simulation engine timings are fixture timings and provide
+no real STT/TTS/acoustic or Pi performance measurement. The core-only environment
+can still emit the known upstream Starlette/httpx TestClient deprecation.
+
+Software started/completed reports describe driver calls/drain, not measured sound.
+Native cancellation is cooperative and holds the worker slot until it exits. Input
+is half duplex without AEC/voice barge-in. Offline alarms use the last synchronized
+snapshot for at most 24 hours by default and may miss a remote cancel during outage.
+Durable at-most-once attempts can leave an unheard indeterminate alarm after a crash;
+backend pending state persists until explicit dismissal. See the guide's recovery
+and acceptance policy. Browser credentials/transport and generic durable MCP writes
+remain later work.
+
+## Phase 4 delivery and actual validation (historical)
 
 See [PHASE4_SERVICES.md](PHASE4_SERVICES.md) for configuration, every tool,
 SQLite schema/migrations/backup, recovery, permissions and event contracts.
@@ -232,20 +289,19 @@ hardware and service/network addresses during deployment. No Intel Arc accelerat
 live inference/weather/HA or physical device test ran. Follow
 [SECURITY_AND_HARDWARE.md](SECURITY_AND_HARDWARE.md) for manual acceptance.
 
-## Exact next steps: Phase 5
+## Exact next steps: Phase 6
 
-1. Discover verified wake/embedding/Piper assets through the existing manifest
-   verifier. Integrate local edge wake/VAD, bounded PCM capture and cancellation
-   with the existing outbound authenticated audio protocol; keep serial ownership.
-2. Implement a local server STT audio consumer and feed recognized text into this
-   same agent with trusted device/client identity, scopes and cloud-routing policy.
-3. Add server-only Piper synthesis, bounded output transfer, edge playback
-   start/finish/cancel acknowledgments and explicit failure/unknown outcomes.
-4. Test mute, wake cooldown, chime/echo suppression, interruption, follow-up,
-   disconnect/reconnect and no recording/transcript persistence by default. Build
-   a durable alarm consumer keyed by alarm UUID; test playback deduplication and
-   acknowledgment/reconciliation before promising any offline edge fallback.
-5. Run mocked/loopback regressions first. Separately authorize live model and
-   physical microphone/speaker/Pi acceptance. Preserve firmware and `legacy/`
-   until replacement consumers pass; browser sessions and full React migration
-   remain Phase 6.
+1. Implement browser sessions with explicit device/voice scopes and CSRF/Origin
+   policy; keep operator, provider and edge credentials out of React.
+2. Generate TypeScript contracts for application and voice snapshots. Replace the
+   legacy relay with authenticated snapshot/event transport, durable revision and
+   volatile caption-cursor recovery; test expiry, reconnect and offline states.
+3. Split semantic timer/alarm, weather, home/media and voice widgets. Use real
+   software playback timing for captions, null/stale/unknown states and explicit
+   alarm acknowledgment. Do not equate delivery with physical action/sound.
+4. Add state-machine/component and auth/recovery tests, portrait/accessibility
+   checks, then measure bundle/render/CPU/RSS/FPS on the actual Pi. Optimize from
+   measurements while preserving visual and hardware behavior.
+5. Run the Phase 5 real-model and Pi manual checklist in a separately authorized
+   window. Retire legacy relay/voice consumers only after replacements and physical
+   acceptance pass; preserve utilities and firmware rollback.

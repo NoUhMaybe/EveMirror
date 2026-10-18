@@ -1,0 +1,6 @@
+{
+  "wake_word": {"path": "wake/hey_eve.onnx", "sha256": "<trusted-sha256>"},
+  "melspectrogram": {"path": "wake/melspectrogram.onnx", "sha256": "<trusted-sha256>"},
+  "embedding": {"path": "wake/embedding_model.onnx", "sha256": "<trusted-sha256>"},
+  "silero_vad": {"path": "wake/silero_vad.onnx", "sha256": "<trusted-sha256>"}
+}

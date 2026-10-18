@@ -81,6 +81,71 @@ class AgentClient(PrivateConfig):
     device_ids: set[DeviceId] = Field(default_factory=set)
     allow_mutations: bool = False
     home_entities: set[str] = Field(default_factory=set)
+    allow_voice_state: bool = False
+
+
+class VoiceGrant(PrivateConfig):
+    allow_mutations: bool = False
+    home_entities: set[str] = Field(default_factory=set)
+
+
+class SpeechSettings(PrivateConfig):
+    enabled: bool = False
+    asset_root: Path = Path(".assets")
+    asset_manifest: Path | None = None
+    stt_engine: Literal["faster_whisper"] = "faster_whisper"
+    stt_model_directory: str = "whisper"
+    stt_device: Literal["cpu"] = "cpu"
+    stt_compute_type: Literal["int8"] = "int8"
+    stt_language: str | None = "en"
+    cpu_threads: int = Field(default=4, ge=1, le=32)
+    stt_timeout: float = Field(default=45, ge=0.05, le=180)
+    tts_timeout: float = Field(default=30, ge=0.05, le=120)
+    warmup: bool = False
+    tts_engine: Literal["piper"] = "piper"
+    speaker_id: int = Field(default=0, ge=0, le=10000)
+    length_scale: float = Field(default=1.06, ge=0.5, le=2)
+    noise_scale: float = Field(default=0.58, ge=0, le=2)
+    noise_w_scale: float = Field(default=0.82, ge=0, le=2)
+    max_text: int = Field(default=4000, ge=100, le=8192)
+    max_response_seconds: int = Field(default=60, ge=1, le=60)
+    playback_timeout: float = Field(default=8, ge=0.1, le=30)
+    follow_up_seconds: float = Field(default=60, ge=0, le=60)
+    alarm_poll_seconds: float = Field(default=1, ge=0.05, le=30)
+    voice_event_ttl: float = Field(default=60, ge=1, le=300)
+
+
+class EdgeVoiceSettings(PrivateConfig):
+    enabled: bool = False
+    asset_root: Path = Path(".assets")
+    asset_manifest: Path | None = None
+    state_path: Path = Path("data/edge-voice.sqlite3")
+    input_device: str | None = None
+    output_device: str | None = None
+    capture_rate: int | None = Field(default=None, ge=8000, le=192000)
+    capture_channels: int = Field(default=1, ge=1, le=8)
+    output_rate: int | None = Field(default=None, ge=8000, le=96000)
+    gain: float = Field(default=1, ge=0.1, le=4)
+    volume: float = Field(default=0.7, ge=0, le=1)
+    wake_threshold: float = Field(default=0.5, ge=0.05, le=1)
+    wake_hits: int = Field(default=2, ge=1, le=5)
+    wake_cooldown: float = Field(default=3, ge=0, le=30)
+    vad_threshold: float = Field(default=0.5, ge=0.05, le=1)
+    min_speech_ms: int = Field(default=320, ge=160, le=2000)
+    silence_ms: int = Field(default=800, ge=160, le=3000)
+    initial_timeout: float = Field(default=5, ge=1, le=15)
+    max_utterance_seconds: float = Field(default=15, ge=1, le=30)
+    pre_roll_ms: int = Field(default=160, ge=0, le=320)
+    echo_cooldown: float = Field(default=0.4, ge=0.1, le=3)
+    chime_cooldown: float = Field(default=0.05, ge=0, le=0.3)
+    follow_up_seconds: float = Field(default=60, ge=0, le=60)
+    queue_blocks: int = Field(default=32, ge=4, le=128)
+    muted_on_start: bool = True
+    offline_alarms: bool = True
+    offline_lease_seconds: int = Field(default=86400, ge=60, le=86400)
+    alarm_receipt_limit: int = Field(default=10000, ge=100, le=100000)
+    transfer_timeout: float = Field(default=10, ge=0.1, le=30)
+    turn_timeout: float = Field(default=180, ge=10, le=600)
 
 
 class TimerSettings(PrivateConfig):
@@ -272,6 +337,8 @@ class ServerSettings(BaseSettings):
     agent_clients: dict[DeviceId, AgentClient] = Field(default_factory=dict, repr=False)
     mcp_servers: list[MCPServer] = Field(default_factory=list, repr=False)
     agent_prompt_suffix: str = Field(default="", max_length=4096, repr=False)
+    speech: SpeechSettings = Field(default_factory=SpeechSettings)
+    voice_devices: dict[DeviceId, VoiceGrant] = Field(default_factory=dict)
     database_path: Path = Path("data/server.sqlite3")
     database_busy_ms: int = Field(default=5000, ge=100, le=10000)
     max_operations: int = Field(default=100000, ge=100, le=10000000)
@@ -308,6 +375,13 @@ class ServerSettings(BaseSettings):
                 raise ValueError("Agent client refers to an unapproved Home Assistant entity")
         if len(set(values)) != len(values):
             raise ValueError("Operator, device and agent-client credentials must all be different")
+        if not self.voice_devices.keys() <= self.edge_tokens.keys():
+            raise ValueError("Voice grants must refer to configured edge devices")
+        if any(
+            not grant.home_entities <= self.home.entities.keys()
+            for grant in self.voice_devices.values()
+        ):
+            raise ValueError("Voice grants must refer to approved home entities")
         if self.llm_provider != "ollama" and not self.allow_cloud:
             raise ValueError("Cloud inference requires explicit allow_cloud=true")
         if len(self.mcp_servers) > 8 or len({s.name for s in self.mcp_servers}) != len(
@@ -320,6 +394,7 @@ class ServerSettings(BaseSettings):
 class EdgeSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="EVE_EDGE_",
+        env_nested_delimiter="__",
         extra="forbid",
         hide_input_in_errors=True,
     )
@@ -332,6 +407,7 @@ class EdgeSettings(BaseSettings):
     serial_timeout: float = Field(default=1, ge=0.1, le=3)
     simulate_hardware: bool = False
     journal_path: Path = Path("data/edge-commands.sqlite3")
+    voice: EdgeVoiceSettings = Field(default_factory=EdgeVoiceSettings)
     heartbeat_interval: float = Field(default=10, ge=0.2, le=30)
     reconnect_min: float = Field(default=1, ge=0.1, le=30)
     reconnect_max: float = Field(default=30, ge=1, le=300)

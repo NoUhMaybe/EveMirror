@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from uuid import UUID
 
+from anyio import BrokenResourceError, ClosedResourceError
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -26,13 +27,17 @@ from apps.server.gateway import Gateway, GatewayError
 from apps.server.providers.base import LLMProvider
 from apps.server.providers.factory import create_provider
 from apps.server.services.api import application_router
+from apps.server.services.common import ServiceError
 from apps.server.services.common import utc_now as service_now
 from apps.server.services.hub import Services
+from apps.server.speech.coordinator import VoiceCoordinator
 from apps.server.tools.mcp_client import MCPManager
 from apps.server.tools.native import register_native
 from apps.server.tools.registry import ToolRegistry
 from apps.server.tools.services import register_services
+from packages.audio import SpeechError
 from packages.protocol import (
+    AlarmDismiss,
     AudioBegin,
     AudioChunk,
     AudioEnd,
@@ -42,10 +47,13 @@ from packages.protocol import (
     Command,
     DeviceAck,
     EdgeHello,
+    EdgeVoiceState,
     ErrorEvent,
     ErrorPayload,
     Heartbeat,
     Model,
+    PlaybackStatus,
+    TimerSyncReceipt,
     parse_message,
     utc_now,
 )
@@ -75,6 +83,8 @@ def create_app(
     native_clock=None,
     service_clock=None,
     service_transports=None,
+    speech_stt=None,
+    speech_tts=None,
 ) -> FastAPI:
     settings = settings or ServerSettings()
     gateway = Gateway(settings)
@@ -91,6 +101,7 @@ def create_app(
     sessions = SessionStore(settings.agent)
     mcp = MCPManager(settings.mcp_servers, registry)
     agent = Orchestrator(settings, provider, registry, sessions, mcp, services)
+    voice = VoiceCoordinator(settings, gateway, agent, services, speech_stt, speech_tts)
 
     async def expire_sessions():
         while True:
@@ -102,6 +113,7 @@ def create_app(
         reaper = None
         try:
             await services.start()
+            await voice.start()
             await mcp.refresh()
             reaper = asyncio.create_task(expire_sessions())
             yield
@@ -109,20 +121,28 @@ def create_app(
             if reaper:
                 reaper.cancel()
                 await asyncio.gather(reaper, return_exceptions=True)
+            await voice.close()
             await sessions.close()
             await services.close()
             await mcp.close()
             if provider:
                 await provider.close()
             for connection in list(gateway.connections.values()):
-                await connection.socket.close(code=1012)
+                with suppress(
+                    OSError,
+                    RuntimeError,
+                    WebSocketDisconnect,
+                    BrokenResourceError,
+                    ClosedResourceError,
+                ):
+                    await connection.socket.close(code=1012)
             for task in list(consumers):
                 task.cancel()
             await asyncio.gather(*consumers, return_exceptions=True)
 
     app = FastAPI(
         title="Eve Server",
-        version="0.4.0",
+        version="0.5.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -131,8 +151,9 @@ def create_app(
     app.state.gateway = gateway
     app.state.agent = agent
     app.state.services = services
+    app.state.voice = voice
     app.include_router(agent_router(settings, agent, mcp, configuration_error))
-    app.include_router(application_router(settings, services))
+    app.include_router(application_router(settings, services, voice))
     app.add_middleware(AgentBodyLimit)
 
     @app.exception_handler(RequestValidationError)
@@ -162,8 +183,17 @@ def create_app(
             "active_audio_consumers": len(consumers),
             "errors": gateway.errors,
             "provider": settings.llm_provider if provider else "unconfigured",
-            "stt": "unconfigured",
-            "tts": "unconfigured",
+            "stt": "ready"
+            if voice.status()["stt"].get("ready")
+            else "configured"
+            if voice.status()["stt"].get("configured")
+            else "unconfigured",
+            "tts": "ready"
+            if voice.status()["tts"].get("ready")
+            else "configured"
+            if voice.status()["tts"].get("configured")
+            else "unconfigured",
+            "voice": voice.status(),
             "home_assistant": "configured" if services.home.configured else "unconfigured",
             "services": services.availability(),
         }
@@ -176,6 +206,23 @@ def create_app(
             return await gateway.command(device_id, submission.request_id, submission.command)
         except GatewayError as exc:
             raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+
+    @app.post("/api/devices/{device_id}/voice/cancel", dependencies=[Depends(operator)])
+    async def cancel_voice(device_id: str):
+        if device_id not in settings.edge_tokens:
+            raise HTTPException(404, "unknown_device")
+        upload = voice.uploads.get(device_id)
+        connection = gateway.connections.get(device_id)
+        if upload and connection:
+            with suppress(OSError, RuntimeError, TimeoutError):
+                await connection.send(
+                    Cancel(device_id=device_id, session_id=upload[0], request_id=upload[1])
+                )
+        await voice.cancel(device_id)
+        return {
+            "status": "cancel_requested" if upload else "idle",
+            "note": "Cancellation does not undo actions already issued.",
+        }
 
     @app.websocket("/ws/edge/{device_id}")
     async def edge(socket: WebSocket, device_id: str):
@@ -213,6 +260,18 @@ def create_app(
 
         async def consume(completed: CompletedAudio):
             try:
+                if audio_consumer is None and "voice" in connection.capabilities:
+                    gateway.audio_received += 1
+                    await connection.send(
+                        AudioReceived(
+                            device_id=device_id,
+                            request_id=completed.request_id,
+                            session_id=completed.session_id,
+                            payload=AudioReceivedPayload(total_bytes=len(completed.pcm)),
+                        )
+                    )
+                    await voice.process(completed, connection)
+                    return
                 if audio_consumer:
                     async with asyncio.timeout(60):
                         await audio_consumer(completed)
@@ -249,6 +308,7 @@ def create_app(
             except GatewayError:
                 await socket.close(code=1008)
                 return
+            connection.capabilities = frozenset(hello.payload.capabilities)
             await connection.send(gateway.snapshot(device_id))
             last_received = time.monotonic()
             invalid_count = 0
@@ -288,7 +348,18 @@ def create_app(
                         await connection.send(event.model_copy(update={"timestamp": utc_now()}))
                     elif isinstance(event, DeviceAck):
                         gateway.acknowledge(connection, event)
+                    elif isinstance(event, EdgeVoiceState):
+                        await voice.edge_update(device_id, event)
+                    elif isinstance(event, PlaybackStatus):
+                        await voice.playback_update(connection, event)
+                    elif isinstance(event, TimerSyncReceipt):
+                        await voice.sync_received(connection, event)
+                    elif isinstance(event, AlarmDismiss):
+                        await voice.dismiss(device_id, event)
                     elif isinstance(event, AudioBegin):
+                        if settings.speech.enabled and owned_tasks:
+                            await error("busy", "Only one voice turn per device is allowed", event)
+                            continue
                         if event.session_id in recent_sessions:
                             raise AudioError("Audio session already used on this connection")
                         if len(recent_sessions) >= 1024:
@@ -319,6 +390,8 @@ def create_app(
                             task.cancel()
                     else:
                         await error("invalid_message", "Message direction is not permitted", event)
+                except (SpeechError, ServiceError):
+                    await error("consumer_failed", "Voice operation unavailable", event)
                 except AudioError:
                     audio.clear()
                     await error(
@@ -331,11 +404,14 @@ def create_app(
                 await socket.close(code=1008)
         finally:
             audio.clear()
+            if connection:
+                # Release ownership before cancellable async cleanup or a new attachment.
+                gateway.detach(device_id, connection)
             tasks = list(owned_tasks.values())
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             if connection:
-                gateway.detach(device_id, connection)
+                await voice.disconnected(connection)
 
     return app

@@ -3,6 +3,8 @@ services:
     build:
       context: ../..
       dockerfile: deploy/server/Dockerfile
+      args:
+        EVE_INSTALL_SPEECH: ${EVE_INSTALL_SPEECH:-0}
     env_file: server.env
     ports:
       - "127.0.0.1:8000:8000"
@@ -12,6 +14,8 @@ services:
       EVE_SERVER_DATABASE_PATH: /var/lib/eve/server.sqlite3
     volumes:
       - eve-data:/var/lib/eve
+      # After preparing/validating private models, enable this read-only mount:
+      # - ../../.assets:/opt/eve/assets:ro
     tmpfs:
       - /tmp:size=16m
     cap_drop: [ALL]

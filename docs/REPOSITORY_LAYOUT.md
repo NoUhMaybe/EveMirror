@@ -12,6 +12,17 @@ schema; `packages/weather/` shares pure normalization with legacy weather.
 Database backup and both schema exporters belong in `scripts/`. Runtime SQLite
 files, WAL/SHM companions and local verification environments stay ignored.
 
+Phase 5 capture/wake/VAD, output and durable alarm caching live in
+`apps/edge/voice/`; local STT/Piper, delivery, scoped state and orchestration adapters
+live in `apps/server/speech/`. Shared PCM/tones and asset verification belong in
+`packages/audio/` and `packages/assets/`. The additive voice HTTP schema is
+`packages/application/voice.schema.json`; original application v1 is preserved.
+Optional role locks are `requirements/voice-edge.lock` and `voice-server.lock`.
+Invalid-placeholder manifests in `deploy/voice/` are templates only. Private
+models/manifests under `.assets/`, `/data/` journals and `.venv*/` remain ignored.
+`scripts/simulate_voice.py` and `speech_smoke.py` provide separate fixture and
+explicit real-engine checks. See [PHASE5_VOICE.md](PHASE5_VOICE.md).
+
 | Previous path | Current path |
 |---|---|
 | `dashboard/` | `apps/dashboard/` |

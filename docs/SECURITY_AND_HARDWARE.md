@@ -31,8 +31,24 @@ receipts, hashed turn replay identities, timer names/alarms and scoped presentat
 state/events in SQLite. It does not intentionally store full transcripts or model
 response text. Treat the database and backups as private user data; replay records
 are retained until reviewed maintenance and bounded capacity fails closed.
-The legacy voice path still records WAVs and logs transcripts; use its privacy
-behavior knowingly until the new voice pipeline replaces it.
+Phase 5's configurable voice path keeps input/output PCM, captions and context in
+bounded memory. Captions have a short TTL and a separate non-durable API; device
+voice grants create narrow `voice:<device>` principals through the existing tools.
+Scoped clients need explicit `allow_voice_state` delegation to see a device's
+captions and voice-owned widget state. That delegation is read-only and excludes
+other principals' private data. Raw audio stays local to the STT/TTS hosts; an
+explicitly selected cloud LLM still receives text/context/tool results.
+The legacy voice path still records WAVs and logs transcripts; its separate
+privacy behavior remains relevant when using the retained entry points.
+
+Software mute drops microphone frames before copying/queuing/resampling and
+suppresses inference/uploads; it does not disconnect the OS audio device. Capture
+is half duplex during processing/output with bounded echo tails, without acoustic
+echo cancellation or voice barge-in. Programmatic cancellation discards results
+and cooperatively stops native work; it cannot undo an issued external action.
+Asset manifests must contain independently trusted hashes and all runtime model
+files. Models are not downloaded on demand. Keep inference/SDK debug logs disabled
+when they could expose private text.
 
 Protect private configuration files, journal directories and backups. Use TLS
 outside loopback, restrict the homelab firewall and reverse proxy, keep access logs
@@ -63,8 +79,14 @@ Application snapshots/events enforce principal/device scopes and omit conversati
 history. Events have durable bounded retention; alarms remain in authoritative
 storage until acknowledged. The API rejects browser Origins and edge credentials;
 it is not a browser session mechanism. Never ship its operator/service tokens in
-React. Audible alarms, disconnected-edge fallback and browser transport remain
-later acceptance work. See [PHASE4_SERVICES.md](PHASE4_SERVICES.md).
+React. Phase 5 implements independent audible-alarm scheduling and a durable edge
+cache with a bounded offline lease; physical audio acceptance and browser transport
+remain pending. Alarm attempt receipts reserve UUIDs before output, preventing
+automatic replay after uncertain crashes. This can leave an unheard indeterminate
+alarm; pending backend state persists until explicit dismissal. Offline caches may
+miss remote cancellation until reconnect, and require sane synchronized UTC. Voice
+mute, ordinary stop and network loss preserve an active alarm. See
+[PHASE4_SERVICES.md](PHASE4_SERVICES.md) and [PHASE5_VOICE.md](PHASE5_VOICE.md).
 
 ## Manual hardware acceptance (all pending)
 
@@ -89,9 +111,11 @@ These procedures were not performed in this development session.
 6. Disconnect/restart the backend and verify edge reconnection. Confirm a
    duplicate request ID returns the original result and creates no second fade.
    Review indeterminate results manually before issuing any fresh action.
-7. After phase 5, validate microphone disconnect, wake false triggers/cooldown,
+7. For phase 5, validate microphone disconnect, wake false triggers/cooldown,
    chime echo suppression, VAD, mute, STT, Pi playback/cancellation and follow-up.
-   The phase-2 WAV upload test does not satisfy these scenarios.
+   Verify trusted real models, 44.1/48 kHz capture, truthful tool failures and actual
+   speaker output. Test alarm priority, offline lease, reboot/receipt reconciliation
+   and explicit dismissal. The phase-2 WAV upload test does not satisfy these scenarios.
 8. After phase 7, validate actual sensor presence/absence, debounce, unknown state,
    manual override expiry, protected conversations/alarms and offline sleep/wake.
 

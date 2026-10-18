@@ -21,6 +21,7 @@ def agent_principal(settings: ServerSettings, header: str | None) -> Principal |
             frozenset(settings.edge_tokens),
             allow_mutations=True,
             home_entities=frozenset(settings.home.entities),
+            allow_voice_state=True,
         )
     for name, client in settings.agent_clients.items():
         if authenticated(header, client.token.get_secret_value()):
@@ -29,6 +30,7 @@ def agent_principal(settings: ServerSettings, header: str | None) -> Principal |
                 frozenset(client.device_ids),
                 client.allow_mutations,
                 frozenset(client.home_entities) & settings.home.entities.keys(),
+                client.allow_voice_state,
             )
     return None
 

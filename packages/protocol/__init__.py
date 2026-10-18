@@ -92,7 +92,9 @@ class DeviceAck(Envelope):
 
 
 class HelloPayload(Model):
-    capabilities: tuple[Literal["brightness", "pcm_upload"], ...] = ("brightness", "pcm_upload")
+    capabilities: tuple[
+        Literal["brightness", "pcm_upload", "voice", "playback", "timer_sync"], ...
+    ] = ("brightness", "pcm_upload")
 
 
 class EdgeHello(Envelope):
@@ -185,6 +187,173 @@ class ErrorEvent(Envelope):
     payload: ErrorPayload
 
 
+class PlaybackBeginPayload(Model):
+    encoding: Literal["pcm_s16le"] = "pcm_s16le"
+    sample_rate: Annotated[int, Field(ge=8000, le=48000)]
+    channels: Literal[1] = 1
+    total_bytes: Annotated[int, Field(gt=0, le=5_760_000, multiple_of=2)]
+    purpose: Literal["speech", "alarm"] = "speech"
+    alarm_id: UUID | None = None
+    sample_count: Annotated[int | None, Field(gt=0, le=2880000)] = None
+    duration_seconds: Annotated[float | None, Field(gt=0, le=60)] = None
+
+    @model_validator(mode="after")
+    def valid_audio(self):
+        if self.total_bytes > self.sample_rate * 2 * 60:
+            raise ValueError("Playback exceeds sixty seconds")
+        if (self.purpose == "alarm") != (self.alarm_id is not None):
+            raise ValueError("Alarm identity is required only for alarms")
+        if self.sample_count is not None and self.sample_count != self.total_bytes // 2:
+            raise ValueError("Playback sample count mismatch")
+        if (
+            self.duration_seconds is not None
+            and abs(self.duration_seconds - self.total_bytes / (self.sample_rate * 2))
+            > 1 / self.sample_rate
+        ):
+            raise ValueError("Playback duration mismatch")
+        return self
+
+
+class PlaybackBegin(Envelope):
+    type: Literal["playback.begin"] = "playback.begin"
+    session_id: UUID
+    payload: PlaybackBeginPayload
+
+
+class PlaybackChunk(Envelope):
+    type: Literal["playback.chunk"] = "playback.chunk"
+    session_id: UUID
+    payload: AudioChunkPayload
+
+
+class PlaybackEnd(Envelope):
+    type: Literal["playback.end"] = "playback.end"
+    session_id: UUID
+    payload: AudioEndPayload
+
+
+class PlaybackCancel(Envelope):
+    type: Literal["playback.cancel"] = "playback.cancel"
+    session_id: UUID
+
+
+class PlaybackStatusPayload(Model):
+    status: Literal[
+        "accepted",
+        "buffered",
+        "started",
+        "progress",
+        "completed",
+        "cancelled",
+        "failed",
+        "indeterminate",
+    ]
+    next_sequence: Annotated[int, Field(ge=0, le=10000)] = 0
+    position_samples: Annotated[int, Field(ge=0, le=2880000)] = 0
+    code: Annotated[str | None, Field(max_length=64)] = None
+    alarm_id: UUID | None = None
+    started_at: AwareDatetime | None = None
+
+
+class PlaybackStatus(Envelope):
+    type: Literal["playback.status"] = "playback.status"
+    session_id: UUID
+    payload: PlaybackStatusPayload
+
+
+VoicePhase = Literal[
+    "STARTING",
+    "IDLE",
+    "WAKE_DETECTED",
+    "LISTENING",
+    "UPLOADING",
+    "TRANSCRIBING",
+    "THINKING",
+    "TOOL_EXECUTING",
+    "SYNTHESIZING",
+    "DELIVERING",
+    "SPEAKING",
+    "FOLLOW_UP",
+    "ERROR",
+]
+
+
+class VoiceStatusPayload(Model):
+    state: VoicePhase
+    conversation_id: UUID | None = None
+    transcript: Annotated[str | None, Field(max_length=8192)] = None
+    response: Annotated[str | None, Field(max_length=8192)] = None
+    language: Annotated[str | None, Field(max_length=32)] = None
+    stt_model: Annotated[str | None, Field(max_length=160)] = None
+    transcript_final: bool = True
+    tool: Annotated[str | None, Field(max_length=160)] = None
+    tool_status: Literal["success", "error"] | None = None
+    error: Annotated[str | None, Field(max_length=64)] = None
+    follow_up_seconds: Annotated[float, Field(ge=0, le=60)] = 0
+    metrics: Annotated[dict[str, float], Field(max_length=16)] = Field(default_factory=dict)
+
+
+class VoiceStatus(Envelope):
+    type: Literal["voice.status"] = "voice.status"
+    session_id: UUID
+    payload: VoiceStatusPayload
+
+
+class EdgeVoicePayload(Model):
+    state: VoicePhase
+    muted: bool = True
+    microphone: bool = False
+    wake_ready: bool = False
+    vad_ready: bool = False
+    speaker: bool = False
+    errors: Annotated[int, Field(ge=0)] = 0
+    error: Annotated[str | None, Field(max_length=64)] = None
+    input_level_rms: Annotated[float, Field(ge=0, le=1)] = 0
+    metrics: Annotated[dict[str, float], Field(max_length=16)] = Field(default_factory=dict)
+
+
+class EdgeVoiceState(Envelope):
+    type: Literal["voice.edge_state"] = "voice.edge_state"
+    payload: EdgeVoicePayload
+
+
+class SyncedTimer(Model):
+    timer_id: UUID
+    alarm_id: UUID
+    status: Literal["RUNNING", "PAUSED", "EXPIRED"]
+    deadline: AwareDatetime | None
+    version: Annotated[int, Field(ge=1)]
+
+
+class TimerSyncPayload(Model):
+    generation: UUID
+    sequence: Annotated[int, Field(ge=0, le=63)]
+    final: bool
+    timers: Annotated[tuple[SyncedTimer, ...], Field(max_length=16)] = ()
+
+
+class TimerSync(Envelope):
+    type: Literal["timer.sync"] = "timer.sync"
+    payload: TimerSyncPayload
+
+
+class TimerSyncReceiptPayload(Model):
+    generation: UUID
+    status: Literal["stored"] = "stored"
+
+
+class TimerSyncReceipt(Envelope):
+    type: Literal["timer.sync_received"] = "timer.sync_received"
+    payload: TimerSyncReceiptPayload
+
+
+class AlarmDismiss(Envelope):
+    type: Literal["alarm.dismiss"] = "alarm.dismiss"
+    payload: Annotated[
+        UUID, Field(description="Explicitly dismiss an alarm on this authenticated device")
+    ]
+
+
 Message = Annotated[
     DeviceCommand
     | DeviceAck
@@ -196,7 +365,17 @@ Message = Annotated[
     | AudioEnd
     | AudioReceived
     | Cancel
-    | ErrorEvent,
+    | ErrorEvent
+    | PlaybackBegin
+    | PlaybackChunk
+    | PlaybackEnd
+    | PlaybackCancel
+    | PlaybackStatus
+    | VoiceStatus
+    | EdgeVoiceState
+    | TimerSync
+    | TimerSyncReceipt
+    | AlarmDismiss,
     Field(discriminator="type"),
 ]
 MESSAGE_ADAPTER = TypeAdapter(Message)

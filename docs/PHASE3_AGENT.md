@@ -1,9 +1,9 @@
 # Phase 3 text agent
 
 The text agent is part of `apps/server/main.py`, using the same gateway and
-credential boundary as the Phase 2 transport. It does not attach the audio
-consumer to STT or TTS. `legacy/` and the dashboard's old relay remain necessary
-for the retained voice/weather experience.
+credential boundary as the Phase 2 transport. Phase 5 subsequently attaches
+optional STT/TTS through this same agent; see [PHASE5_VOICE.md](PHASE5_VOICE.md).
+The dashboard's old relay and the legacy voice rollback remain retained.
 
 ## Implemented pipeline
 

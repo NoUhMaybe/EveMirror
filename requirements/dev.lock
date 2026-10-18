@@ -1,6 +1,7 @@
 # Resolved and tested on Python 3.12.10 / Windows, 2026-10-17.
 # Platform wheels are selected by pip; Linux/Pi installation requires CI/hardware validation.
 -r server.lock
+-r audio.lock
 -r edge.lock
 charset-normalizer==3.5.2
 colorama==0.4.6

@@ -17,24 +17,31 @@ flowchart LR
 Provider adapters, the tool registry/MCP client and temporary text sessions were
 implemented in Phase 3. Phase 4 adds persistent timers/alarms, cached Open-Meteo,
 restricted native HA/media, optional SearXNG and scoped application snapshots/events.
-Speech processing and browser transport arrows still describe later work. The
-implementation status is authoritative; integrations were tested using fixtures.
+Phase 5 implements the configurable speech arrow with Pi wake/VAD, local server
+faster-whisper/Piper and bounded return playback. Only the browser transport arrow
+still describes later work. Integrations were tested using fixtures; actual model
+inference and physical audio acceptance are pending.
 
 ## Incremental boundaries
 
 - `apps/edge`: network runtime, single serial owner, memory-only audio sender,
-  durable command replay protection. Local hardware calls use the same service
+  durable command replay protection; optional `voice/` owns native-rate capture,
+  wake/VAD, one output manager and a separate durable alarm/mute journal. Local hardware calls use the same service
   without depending on server connectivity or inference.
 - `apps/server`: authenticated gateway, connection/request correlation, bounded
   audio assembler and snapshot service; provider-independent text orchestration,
   approved tools/MCP, persistent services and ephemeral conversation sessions. No serial, sounddevice, Torch or model
-  weights are needed by the backend installation.
+  weights are needed by the base backend installation. Optional `speech/` owns
+  verified local server models, device-scoped voice turns, playback delivery and
+  timer-cache reconciliation; it reuses the same orchestrator and tools.
 - `packages/protocol`: strict Pydantic wire schemas; generated JSON Schema for
   future TypeScript generation. Protocol version changes require an explicit migration.
 - `apps/server/services`: one SQLite owner, timer reconciliation, HTTP integration
   clients, operation receipts, scoped semantic state and durable event polling.
 - `packages/application`: generated version-1 snapshot/event schema;
   `packages/weather`: pure normalization shared with retained legacy weather.
+- `packages/audio`, `packages/assets`: validated PCM/metadata, local tones,
+  cancellation ownership and shared trusted-manifest asset verification.
 - `apps/dashboard`: retained React application; move components in small tested steps.
 - `firmware/feather_m4`: retained firmware source and rollback baseline.
 - `legacy/agent`, `legacy/client`: working earlier voice pipeline, retained until replaced.
@@ -73,8 +80,23 @@ close the local hardware service. Duplicate edge connections are rejected.
 
 Audio is PCM16 mono at 16 kHz with explicit begin/chunk/end messages, sequence
 numbers and byte counts. Frames, sessions, duration and idle time are bounded.
-Incomplete uploads are discarded. The phase-2 receiver acknowledges receipt;
-transcription is a separate injected consumer, not a claimed capability.
+Incomplete uploads are discarded. Receipt acknowledges transport only. Negotiated
+voice peers use the separate speech consumer; old peers retain the discard/test
+consumer behavior. Playback has separate begin/chunk/end framing and software
+started/progress/completed/cancelled/error receipts, never acoustic guarantees.
+
+The edge suppresses microphone frames while muted, processing or playing. Wake
+and VAD run locally; only bounded utterances leave the Pi. The server uses one
+retained CPU INT8 STT worker and one Piper worker; optional dependencies and weights
+are isolated from the edge/base server roles. Transcripts, responses and context
+expire in memory. A separate delegated voice snapshot exposes scoped captions and
+voice-owned widgets to trusted clients without changing application v1.
+
+Backend timers remain authoritative. Complete snapshots populate a device-bound
+edge cache, allowing finite local alarm tones through a bounded offline lease.
+Alarm UUIDs are reserved durably before playback and uncertain attempts are never
+replayed automatically. Playback does not acknowledge a pending timer. Alarm
+priority and scheduling are independent of LLM/STT/TTS and ordinary speech mute.
 
 Official implementation references:
 [FastAPI WebSockets](https://fastapi.tiangolo.com/advanced/websockets/),
@@ -111,3 +133,6 @@ timer recovery, native HA/media allowlists, configured HTTP destinations, weathe
 freshness and the separate authenticated application snapshot/event contract.
 The React dashboard retains its legacy relay until Phase 6; the semantic API does
 not introduce browser authentication or a public event stream.
+
+See [PHASE5_VOICE.md](PHASE5_VOICE.md) for speech ownership, trusted assets,
+half-duplex/follow-up behavior, cancellation limits and offline alarm reconciliation.

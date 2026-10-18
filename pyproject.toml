@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evemirror"
-version = "0.4.0"
+version = "0.5.0"
 description = "Local-first distributed smart mirror foundation"
 requires-python = ">=3.11"
 dependencies = [
@@ -20,7 +20,10 @@ server = [
   "tzdata>=2026.5",
 ]
 edge = ["pyserial==3.5"]
-dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "httpx==0.28.1", "ruff>=0.9,<1", "requests>=2.32,<3"]
+dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "httpx==0.28.1", "ruff>=0.9,<1", "requests>=2.32,<3", "numpy==2.2.6", "soxr==1.1.0"]
+
+voice-edge = ["numpy==2.2.6", "soxr==1.1.0", "sounddevice==0.5.6", "openwakeword==0.6.0", "onnxruntime==1.31.0", "scipy==1.15.3"]
+voice-server = ["numpy==2.2.6", "faster-whisper==1.2.1", "piper-tts==1.8.0", "av==14.2.0"]
 
 [project.scripts]
 eve-edge = "apps.edge.runtime:main"
@@ -32,7 +35,7 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "packages.protocol" = ["schema.json"]
-"packages.application" = ["schema.json"]
+"packages.application" = ["schema.json", "voice.schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

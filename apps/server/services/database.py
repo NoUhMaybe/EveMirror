@@ -50,7 +50,13 @@ CREATE TABLE resources (
  id TEXT NOT NULL, payload TEXT NOT NULL,
  PRIMARY KEY(owner,device_id,kind,id)
 );
-"""
+""",
+    """
+CREATE TABLE alarm_delivery (
+ alarm_id TEXT PRIMARY KEY REFERENCES alarms(id), device_id TEXT NOT NULL,
+ status TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+""",
 ]
 
 
@@ -126,6 +132,7 @@ class Database:
                     "FROM events LIMIT 0",
                     "SELECT owner,device_id,view,layout FROM views LIMIT 0",
                     "SELECT owner,device_id,kind,id,payload FROM resources LIMIT 0",
+                    "SELECT alarm_id,device_id,status,updated_at FROM alarm_delivery LIMIT 0",
                 ):
                     connection.execute(query)
                 self.connection, self.error = connection, None

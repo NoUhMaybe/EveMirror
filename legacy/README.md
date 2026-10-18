@@ -5,6 +5,12 @@ implemented. It still uses local recordings, Ollama, faster-whisper, Piper playb
 and the loopback dashboard event relay. It is separate from `apps/edge` and
 `apps/server`; see [current status](../docs/IMPLEMENTATION_STATUS.md).
 
+Phase 5 now implements the replacement distributed voice path; see its
+[setup and acceptance guide](../docs/PHASE5_VOICE.md). This directory remains for
+rollback and physical voice acceptance. Its dashboard relay/event/weather modules
+still serve the current React application until Phase 6. Do not delete the legacy
+entry points or utilities solely because the new pipeline exists.
+
 Run commands from the repository root using the existing voice `.venv` or an
 environment installed from `legacy/client/requirements.txt` and
 `legacy/agent/requirements.txt`. Keep it separate from `.venv-dev`.

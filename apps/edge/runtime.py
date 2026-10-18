@@ -17,6 +17,8 @@ from websockets.exceptions import ConnectionClosed, InvalidStatus
 from apps.config import EdgeSettings
 from apps.edge.commands import CommandProcessor
 from apps.edge.hardware import FeatherService, SimulatedHardware
+from apps.edge.voice.controller import VoiceController
+from packages.audio import SpeechError
 from packages.protocol import (
     MAX_FRAME_BYTES,
     MAX_MESSAGE_BYTES,
@@ -32,8 +34,15 @@ from packages.protocol import (
     EdgeHello,
     ErrorEvent,
     Heartbeat,
+    HelloPayload,
     Message,
+    PlaybackBegin,
+    PlaybackCancel,
+    PlaybackChunk,
+    PlaybackEnd,
     StateSnapshot,
+    TimerSync,
+    VoiceStatus,
     parse_message,
 )
 
@@ -53,7 +62,17 @@ def reconnect_delay(attempt: int, minimum: float, maximum: float) -> float:
 
 
 class EdgeRuntime:
-    def __init__(self, settings: EdgeSettings, hardware=None):
+    def __init__(
+        self,
+        settings: EdgeSettings,
+        hardware=None,
+        *,
+        audio_source=None,
+        detector=None,
+        speaker=None,
+        voice_clock=None,
+        voice_utc_clock=None,
+    ):
         self.settings = settings
         self.hardware = hardware or (
             SimulatedHardware()
@@ -69,6 +88,19 @@ class EdgeRuntime:
         self._send_lock = asyncio.Lock()
         self._upload_lock = asyncio.Lock()
         self._receipts: dict = {}
+        self._command_tasks = set()
+        self.voice = (
+            VoiceController(
+                self,
+                source=audio_source,
+                detector=detector,
+                speaker=speaker,
+                **({"clock": voice_clock} if voice_clock else {}),
+                **({"utc_clock": voice_utc_clock} if voice_utc_clock else {}),
+            )
+            if settings.voice.enabled
+            else None
+        )
 
     async def _send(self, event: Message):
         async with self._send_lock:
@@ -77,7 +109,7 @@ class EdgeRuntime:
             async with asyncio.timeout(5):
                 await self._socket.send(event.model_dump_json())
 
-    async def upload_pcm(self, pcm: bytes) -> AudioReceived:
+    async def upload_pcm(self, pcm: bytes, *, session_id=None, request_id=None) -> AudioReceived:
         """Transitional whole utterance, frame bounded. Never retains or retries audio."""
         # Validate before buffering, and refuse additional simultaneous uploads.
         payload = AudioBeginPayload(total_bytes=len(pcm))
@@ -86,7 +118,7 @@ class EdgeRuntime:
         if not self.connected.is_set():
             raise EdgeOfflineError("Backend unavailable")
         async with self._upload_lock:
-            session_id, request_id = uuid4(), uuid4()
+            session_id, request_id = session_id or uuid4(), request_id or uuid4()
             identity = {
                 "device_id": self.settings.device_id,
                 "session_id": session_id,
@@ -127,10 +159,23 @@ class EdgeRuntime:
             if event.device_id != self.settings.device_id:
                 raise ValueError("Unexpected device identity")
             if isinstance(event, DeviceCommand):
-                ack = await self.commands.execute(event)
-                await self._send(ack)
+
+                async def execute(command):
+                    ack = await self.commands.execute(command)
+                    await self._send(ack)
+
+                if len(self._command_tasks) >= 8:
+                    raise ValueError("Command queue is full")
+                task = asyncio.create_task(execute(event))
+                self._command_tasks.add(task)
+                task.add_done_callback(self._command_tasks.discard)
+                task.add_done_callback(
+                    lambda finished: finished.exception() if not finished.cancelled() else None
+                )
             elif isinstance(event, StateSnapshot):
                 self.connected.set()
+                if self.voice:
+                    await self.voice.publish()
             elif isinstance(event, (AudioReceived, ErrorEvent)):
                 pending = self._receipts.get(event.request_id)
                 if pending and not pending.done():
@@ -138,6 +183,21 @@ class EdgeRuntime:
                         pending.set_result(event)
                     else:
                         pending.set_exception(AudioUploadError(event.payload.code))
+            elif isinstance(
+                event,
+                (PlaybackBegin, PlaybackChunk, PlaybackEnd, PlaybackCancel, VoiceStatus, TimerSync),
+            ):
+                if self.voice is None:
+                    raise ValueError("Voice messages were not negotiated")
+                try:
+                    await self.voice.handle(event)
+                except SpeechError:
+                    self.voice.receiver.clear()
+                    if isinstance(event, (PlaybackBegin, PlaybackChunk, PlaybackEnd)):
+                        await self.voice.receiver._status(event, "failed", "invalid_playback")
+            elif isinstance(event, Cancel):
+                if self.voice and event.session_id == self.voice.session_id:
+                    await self.voice.cancel()
             elif not isinstance(event, Heartbeat):
                 raise ValueError("Message direction is not permitted")
 
@@ -149,6 +209,8 @@ class EdgeRuntime:
                     payload=self.hardware.status,
                 )
             )
+            if self.voice:
+                await self.voice.publish()
             await asyncio.sleep(self.settings.heartbeat_interval)
 
     async def _connection(self):
@@ -167,7 +229,17 @@ class EdgeRuntime:
             ping_timeout=15,
         ) as socket:
             self._socket = socket
-            await self._send(EdgeHello(device_id=self.settings.device_id))
+            capabilities = (
+                ("brightness", "pcm_upload", "voice", "playback", "timer_sync")
+                if self.voice and self.voice.storage_ready
+                else ("brightness", "pcm_upload")
+            )
+            await self._send(
+                EdgeHello(
+                    device_id=self.settings.device_id,
+                    payload=HelloPayload(capabilities=capabilities),
+                )
+            )
             tasks = [asyncio.create_task(self._receive()), asyncio.create_task(self._heartbeat())]
             try:
                 done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -181,6 +253,8 @@ class EdgeRuntime:
     async def run(self):
         attempt = 0
         try:
+            if self.voice:
+                await self.voice.start()
             while True:
                 started = asyncio.get_running_loop().time()
                 try:
@@ -195,7 +269,9 @@ class EdgeRuntime:
                 finally:
                     self.connected.clear()
                     self._socket = None
-                    for pending in self._receipts.values():
+                    if self.voice:
+                        await self.voice.disconnected()
+                    for pending in list(self._receipts.values()):
                         if not pending.done():
                             pending.set_exception(EdgeOfflineError("Backend disconnected"))
                 if asyncio.get_running_loop().time() - started > 30:
@@ -209,6 +285,11 @@ class EdgeRuntime:
                 )
                 attempt += 1
         finally:
+            if self.voice:
+                await self.voice.close()
+            for command_task in list(self._command_tasks):
+                command_task.cancel()
+            await asyncio.gather(*self._command_tasks, return_exceptions=True)
             try:
                 await self.hardware.close()
             finally:
@@ -226,10 +307,20 @@ def read_pcm_wav(path: Path) -> bytes:
         return pcm
 
 
-async def run_cli(settings: EdgeSettings, wav: Path | None):
+async def run_cli(settings: EdgeSettings, wav: Path | None, unmute=False):
     runtime = EdgeRuntime(settings)
     if wav is None:
-        await runtime.run()
+        if not unmute:
+            await runtime.run()
+            return
+        task = asyncio.create_task(runtime.run())
+        try:
+            await asyncio.wait_for(runtime.voice.started.wait(), 15)
+            await runtime.voice.set_muted(False)
+            await task
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         return
     pcm = read_pcm_wav(wav)
     task = asyncio.create_task(runtime.run())
@@ -238,7 +329,7 @@ async def run_cli(settings: EdgeSettings, wav: Path | None):
         receipt = await runtime.upload_pcm(pcm)
         print(
             f"Backend received {receipt.payload.total_bytes} PCM bytes; "
-            "transcription is unconfigured."
+            "this diagnostic confirms transport receipt only."
         )
     finally:
         task.cancel()
@@ -251,13 +342,54 @@ def main():
         "--simulate-hardware", action="store_true", help="Explicit simulated Feather"
     )
     parser.add_argument("--upload-wav", type=Path, help="Upload one existing test WAV, then exit")
+    parser.add_argument(
+        "--voice", action="store_true", help="Enable configured local wake/VAD and playback"
+    )
+    parser.add_argument(
+        "--unmute",
+        action="store_true",
+        help="Explicitly unmute this voice process and saved preference",
+    )
+    parser.add_argument(
+        "--list-audio-devices",
+        action="store_true",
+        help="List PortAudio device names without starting capture",
+    )
+    parser.add_argument(
+        "--validate-voice-assets",
+        action="store_true",
+        help="Verify configured wake/VAD assets without opening audio",
+    )
     args = parser.parse_args()
+    if args.list_audio_devices:
+        import sounddevice as sd
+
+        print(sd.query_devices())
+        return
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     settings = EdgeSettings()
+    if args.validate_voice_assets:
+        from packages.assets import AssetCatalog
+
+        if settings.voice.asset_manifest is None:
+            parser.error("Configure EVE_EDGE_VOICE__ASSET_MANIFEST")
+        catalog = AssetCatalog(settings.voice.asset_manifest, settings.voice.asset_root)
+        for name in ("wake_word", "melspectrogram", "embedding", "silero_vad"):
+            catalog.path(name)
+        print("All four wake/VAD assets match the trusted manifest.")
+        return
+    if args.voice:
+        settings = settings.model_copy(
+            update={"voice": settings.voice.model_copy(update={"enabled": True})}
+        )
+    if args.unmute and not settings.voice.enabled:
+        parser.error("--unmute requires voice to be enabled")
+    if args.upload_wav and (settings.voice.enabled or args.unmute):
+        parser.error("--upload-wav is a separate transport diagnostic; disable voice capture")
     if args.simulate_hardware:
         settings = settings.model_copy(update={"simulate_hardware": True})
     try:
-        asyncio.run(run_cli(settings, args.upload_wav))
+        asyncio.run(run_cli(settings, args.upload_wav, args.unmute))
     except KeyboardInterrupt:
         pass
 

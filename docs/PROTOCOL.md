@@ -84,9 +84,11 @@ session IDs on a connection are rejected. A bounded replay window forces a clean
 reconnect after 1,024 sessions. `session.cancel` discards an upload or cancels its
 consumer; cancelled sessions do not produce successful receipts.
 
-The default consumer discards PCM after receipt. Tests inject a fake speech
-consumer. A future STT/agent service must implement the consumer contract; no
-STT/TTS readiness is inferred from this transport test.
+Peers without negotiated voice retain the original discard/injected consumer.
+Voice peers receive transport receipt before asynchronous STT/agent/TTS work;
+completion of that work uses separate voice/playback messages below. Disabled or
+unauthorized speech returns an explicit voice error. Receipt is never proof of
+transcription, a tool action, synthesis or playback.
 
 ## Operator endpoints
 
@@ -106,6 +108,9 @@ These existing snapshots restore transport/hardware metadata. Phase 4 applicatio
 snapshots/events below separately restore timers, alarms and weather; device/audio
 v1 stays unchanged. Temporary conversation context remains private and memory-only.
 Browser authentication remains pending.
+
+Phase 5 adds `POST /api/devices/{id}/voice/cancel` for operators. It cancels voice
+processing and ordinary playback; it cannot undo a hardware/HA action already issued.
 
 ## Text agent HTTP API (Phase 3)
 
@@ -137,7 +142,7 @@ not persist conversation text or provide generic durable MCP transactions.
 Hardware mutations derive stable UUIDs from the turn,
 principal/device and typed command, and use the same gateway deadline, ACK/error
 and durable edge journal as existing operator commands. No alternate wire route
-was added, and the v1 device/audio JSON Schema is unchanged.
+was added. Phase 5 subsequently adds negotiated voice messages to that v1 schema.
 
 The API cannot override provider/model, permissions or confirmation through input.
 For full schemas, configuration, privacy and examples see
@@ -173,3 +178,50 @@ Python models live in `apps/server/services/events.py`, `models.py` and
 `weather.py`. Regenerate the separate portable contract with
 `python scripts/export_application.py` into `packages/application/schema.json`.
 The original `packages/protocol/schema.json` remains the device/audio contract.
+
+## Negotiated distributed voice (Phase 5, additive v1)
+
+`edge.hello.payload.capabilities` advertises `voice`, `playback` and `timer_sync`.
+Defaults preserve old peers; original command/upload forms remain valid. All new
+messages retain authenticated device/session/request correlation and the 24,000
+byte JSON limit. Cross-device, wrong-direction and foreign-session messages fail.
+
+- `voice.status`: server phases, bounded captions, conversation ID, transcript
+  language/model/final metadata, tool state and stage metrics. `DELIVERING` precedes
+  output; `SPEAKING` follows the edge's actual software started receipt.
+- `voice.edge_state`: mute, capture/wake/VAD/output readiness, RMS, errors and
+  timings. Availability is last reported software state, not a hardware probe.
+- `playback.begin`: declared PCM16 mono format, rate, bytes, source sample count,
+  duration and optional alarm UUID. Only bounded, consistent metadata is accepted.
+- `playback.chunk` / `playback.end`: ordered base64 PCM (at most 16,000 decoded
+  bytes per frame) and exact final byte/chunk counts. The edge buffers one bounded
+  response and starts output only after validation of the complete transfer.
+- `playback.status`: accepted/buffered flow control, then software started,
+  progress, completed, cancelled, failed or indeterminate. `position_samples`
+  counts **source-rate** samples; `started_at` is aware software UTC. Sending bytes
+  never marks completion. The server waits for each transfer receipt with bounds.
+- `playback.cancel`: correlated cancellation of assembly or output. Native work
+  cancellation is cooperative; completion is never fabricated after cancellation.
+- `timer.sync` / `timer.sync_received`: complete paginated snapshots, generation
+  UUID and durable-cache storage receipt. Maximum 16 records/frame and 1024 total;
+  partial generations cannot replace prior schedules. Reconnect replays historical
+  alarm receipts, never the sound; `replayed_receipt` identifies reconciliation.
+- `alarm.dismiss`: explicit device-scoped alarm UUID acknowledgment, queued
+  durably offline. Alarm playback and backend pending/acknowledged state are separate.
+
+`session.cancel` also cancels an accepted voice consumer by its upload IDs.
+Disconnect discards utterances/responses and preserves independent cached alarms.
+No automatic audio/turn replay occurs. Legacy transport snapshot `stt`/`tts`
+placeholders remain compatible; `/api/health` contains current nested speech status.
+
+`GET /api/application/voice?after=<revision>` returns the separately generated
+`packages/application/voice.schema.json` contract: scoped current voice state,
+bounded volatile events/captions, `resync_required`, voice-owned widget snapshots
+and durable alarm-delivery metadata. Operators qualify; scoped agent clients need
+`allow_voice_state=true` plus device grants. This delegates voice-owned widget
+visibility only, excluding other principals' private state. Origins/device tokens
+are rejected. Caption TTL defaults to 60 seconds and history to 128 events/device;
+restart/retention requires resync. The existing application v1 schema is unchanged.
+
+See [PHASE5_VOICE.md](PHASE5_VOICE.md) for exact state transitions, offline lease,
+at-most-once attempt limitations, privacy and failure recovery.

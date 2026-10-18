@@ -1,0 +1,22 @@
+# Speech/audio additions; resolved on Windows Python 3.12, 2026-10-18.
+# Linux/Pi installation remains unverified. Edge voice on Linux needs Python 3.11.
+-r server.lock
+-r audio.lock
+av==14.2.0
+ctranslate2==4.8.3
+faster-whisper==1.2.1
+filelock==4.2.2
+flatbuffers==25.12.19
+fsspec==2026.9.0
+hf-xet==1.7.0
+httpcore2==2.13.1
+httpx2==2.13.1
+huggingface-hub==2.2.0
+onnxruntime==1.31.0
+packaging==26.3
+pathvalidate==3.3.1
+piper-tts==1.8.0
+protobuf==7.36.2
+pyyaml==6.0.3
+tokenizers==0.23.3
+truststore==0.10.5

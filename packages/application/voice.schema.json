@@ -1,0 +1,1011 @@
+{
+  "$defs": {
+    "AlarmDeliverySnapshot": {
+      "properties": {
+        "alarms": {
+          "items": {
+            "$ref": "#/$defs/AlarmDeliveryState"
+          },
+          "title": "Alarms",
+          "type": "array"
+        },
+        "available": {
+          "default": false,
+          "title": "Available",
+          "type": "boolean"
+        }
+      },
+      "title": "AlarmDeliverySnapshot",
+      "type": "object"
+    },
+    "AlarmDeliveryState": {
+      "additionalProperties": false,
+      "properties": {
+        "alarm_id": {
+          "format": "uuid",
+          "title": "Alarm Id",
+          "type": "string"
+        },
+        "delivery_status": {
+          "enum": [
+            "pending",
+            "delivered",
+            "started",
+            "completed",
+            "cancelled",
+            "failed",
+            "indeterminate"
+          ],
+          "title": "Delivery Status",
+          "type": "string"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "pending": {
+          "title": "Pending",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "alarm_id",
+        "device_id",
+        "delivery_status",
+        "updated_at",
+        "pending"
+      ],
+      "title": "AlarmDeliveryState",
+      "type": "object"
+    },
+    "AlarmRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "alarm_id": {
+          "format": "uuid",
+          "title": "Alarm Id",
+          "type": "string"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "expired_at": {
+          "format": "date-time",
+          "title": "Expired At",
+          "type": "string"
+        },
+        "timer_id": {
+          "format": "uuid",
+          "title": "Timer Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alarm_id",
+        "timer_id",
+        "device_id",
+        "expired_at"
+      ],
+      "title": "AlarmRecord",
+      "type": "object"
+    },
+    "ApplicationSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "alarms": {
+          "items": {
+            "$ref": "#/$defs/AlarmRecord"
+          },
+          "title": "Alarms",
+          "type": "array"
+        },
+        "availability": {
+          "additionalProperties": true,
+          "title": "Availability",
+          "type": "object"
+        },
+        "devices": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Devices",
+          "type": "array"
+        },
+        "revision": {
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "timers": {
+          "items": {
+            "$ref": "#/$defs/TimerRecord"
+          },
+          "title": "Timers",
+          "type": "array"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "views": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Views",
+          "type": "array"
+        },
+        "weather": {
+          "items": {
+            "$ref": "#/$defs/Forecast"
+          },
+          "title": "Weather",
+          "type": "array"
+        }
+      },
+      "required": [
+        "timestamp",
+        "revision"
+      ],
+      "title": "ApplicationSnapshot",
+      "type": "object"
+    },
+    "Current": {
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition"
+        },
+        "feels_like": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Feels Like"
+        },
+        "humidity_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Humidity Pct"
+        },
+        "kind": {
+          "const": "model_estimate",
+          "default": "model_estimate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "precipitation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Precipitation"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Temperature"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Time"
+        },
+        "wind_speed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Wind Speed"
+        }
+      },
+      "required": [
+        "time",
+        "temperature",
+        "feels_like",
+        "humidity_pct",
+        "wind_speed",
+        "condition",
+        "precipitation"
+      ],
+      "title": "Current",
+      "type": "object"
+    },
+    "Day": {
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Condition"
+        },
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "High"
+        },
+        "kind": {
+          "const": "forecast",
+          "default": "forecast",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Low"
+        },
+        "precipitation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Precipitation"
+        },
+        "rain_probability_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rain Probability Pct"
+        },
+        "sunrise": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sunrise"
+        },
+        "sunset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sunset"
+        }
+      },
+      "required": [
+        "date",
+        "high",
+        "low",
+        "rain_probability_pct",
+        "precipitation",
+        "condition",
+        "sunrise",
+        "sunset"
+      ],
+      "title": "Day",
+      "type": "object"
+    },
+    "EdgeVoicePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "errors": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "input_level_rms": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Input Level Rms",
+          "type": "number"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "maxProperties": 16,
+          "title": "Metrics",
+          "type": "object"
+        },
+        "microphone": {
+          "default": false,
+          "title": "Microphone",
+          "type": "boolean"
+        },
+        "muted": {
+          "default": true,
+          "title": "Muted",
+          "type": "boolean"
+        },
+        "speaker": {
+          "default": false,
+          "title": "Speaker",
+          "type": "boolean"
+        },
+        "state": {
+          "enum": [
+            "STARTING",
+            "IDLE",
+            "WAKE_DETECTED",
+            "LISTENING",
+            "UPLOADING",
+            "TRANSCRIBING",
+            "THINKING",
+            "TOOL_EXECUTING",
+            "SYNTHESIZING",
+            "DELIVERING",
+            "SPEAKING",
+            "FOLLOW_UP",
+            "ERROR"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "vad_ready": {
+          "default": false,
+          "title": "Vad Ready",
+          "type": "boolean"
+        },
+        "wake_ready": {
+          "default": false,
+          "title": "Wake Ready",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "EdgeVoicePayload",
+      "type": "object"
+    },
+    "Forecast": {
+      "properties": {
+        "cache_age_seconds": {
+          "default": 0,
+          "title": "Cache Age Seconds",
+          "type": "number"
+        },
+        "current": {
+          "$ref": "#/$defs/Current"
+        },
+        "daily": {
+          "items": {
+            "$ref": "#/$defs/Day"
+          },
+          "title": "Daily",
+          "type": "array"
+        },
+        "fetched_at": {
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "freshness_ttl_seconds": {
+          "default": 600,
+          "exclusiveMinimum": 0,
+          "title": "Freshness Ttl Seconds",
+          "type": "number"
+        },
+        "hourly": {
+          "items": {
+            "$ref": "#/$defs/Hour"
+          },
+          "title": "Hourly",
+          "type": "array"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        },
+        "measurement_units": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Measurement Units",
+          "type": "object"
+        },
+        "source": {
+          "const": "open-meteo",
+          "default": "open-meteo",
+          "title": "Source",
+          "type": "string"
+        },
+        "source_age_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Age Seconds"
+        },
+        "source_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Timestamp"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "units": {
+          "enum": [
+            "imperial",
+            "metric"
+          ],
+          "title": "Units",
+          "type": "string"
+        },
+        "valid_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Valid From"
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Valid Until"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "location",
+        "units",
+        "measurement_units",
+        "current",
+        "hourly",
+        "daily",
+        "fetched_at",
+        "source_timestamp",
+        "valid_from",
+        "valid_until"
+      ],
+      "title": "Forecast",
+      "type": "object"
+    },
+    "Hour": {
+      "properties": {
+        "humidity_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Humidity Pct"
+        },
+        "kind": {
+          "const": "forecast",
+          "default": "forecast",
+          "title": "Kind",
+          "type": "string"
+        },
+        "precipitation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Precipitation"
+        },
+        "rain_probability_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rain Probability Pct"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Temperature"
+        },
+        "time": {
+          "title": "Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "time",
+        "temperature",
+        "humidity_pct",
+        "rain_probability_pct",
+        "precipitation"
+      ],
+      "title": "Hour",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Latitude",
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Longitude",
+          "type": "number"
+        },
+        "name": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "timezone": {
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "latitude",
+        "longitude",
+        "timezone"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "TimerRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "acknowledged_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Acknowledged At"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deadline"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "duration_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "expired_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expired At"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Name"
+        },
+        "remaining_ms": {
+          "minimum": 0,
+          "title": "Remaining Ms",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "RUNNING",
+            "PAUSED",
+            "EXPIRED",
+            "CANCELLED",
+            "ACKNOWLEDGED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "device_id",
+        "name",
+        "duration_ms",
+        "remaining_ms",
+        "status",
+        "created_at",
+        "deadline",
+        "expired_at",
+        "acknowledged_at",
+        "updated_at",
+        "version"
+      ],
+      "title": "TimerRecord",
+      "type": "object"
+    },
+    "VoiceDeviceState": {
+      "additionalProperties": false,
+      "properties": {
+        "application": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApplicationSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "connected": {
+          "default": false,
+          "title": "Connected",
+          "type": "boolean"
+        },
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "edge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EdgeVoicePayload"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "last_success": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Success"
+        }
+      },
+      "required": [
+        "device_id"
+      ],
+      "title": "VoiceDeviceState",
+      "type": "object"
+    },
+    "VoiceEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "assistant.transcribing",
+            "assistant.thinking",
+            "assistant.tool_executing",
+            "assistant.synthesizing",
+            "assistant.delivering",
+            "assistant.speaking",
+            "assistant.follow_up",
+            "assistant.error",
+            "assistant.edge_state",
+            "assistant.playback"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "event_id",
+        "revision",
+        "timestamp",
+        "device_id",
+        "type",
+        "payload"
+      ],
+      "title": "VoiceEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "alarm_delivery": {
+      "$ref": "#/$defs/AlarmDeliverySnapshot"
+    },
+    "devices": {
+      "items": {
+        "$ref": "#/$defs/VoiceDeviceState"
+      },
+      "title": "Devices",
+      "type": "array"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/VoiceEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "expires_after_seconds": {
+      "exclusiveMinimum": 0,
+      "title": "Expires After Seconds",
+      "type": "number"
+    },
+    "resync_required": {
+      "default": false,
+      "title": "Resync Required",
+      "type": "boolean"
+    },
+    "revision": {
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "volatile": {
+      "const": true,
+      "default": true,
+      "title": "Volatile",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "revision",
+    "expires_after_seconds",
+    "events",
+    "devices"
+  ],
+  "title": "VoiceSnapshot",
+  "type": "object"
+}

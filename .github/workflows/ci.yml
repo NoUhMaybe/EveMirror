@@ -25,7 +25,7 @@ jobs:
       - run: python scripts/simulate.py
       - run: python scripts/export_protocol.py
       - run: python scripts/export_application.py
-      - run: git diff --exit-code -- packages/protocol/schema.json packages/application/schema.json
+      - run: git diff --exit-code -- packages/protocol/schema.json packages/application/schema.json packages/application/voice.schema.json
   dashboard:
     runs-on: ubuntu-latest
     defaults:
