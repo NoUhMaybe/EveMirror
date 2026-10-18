@@ -85,7 +85,12 @@ jobs:
         with:
           python-version: '3.11'
       - name: Check Linux ARM64 wheel availability without installing or running Pi code
-        run: python -m pip download --only-binary=:all: --no-deps --platform manylinux2014_aarch64 --platform manylinux_2_27_aarch64 --platform manylinux_2_28_aarch64 --platform manylinux_2_34_aarch64 --python-version 311 --implementation cp --abi cp311 --dest "${{ runner.temp }}/eve-arm64-wheels" -r requirements/voice-edge.lock
+        run: >-
+          python -m pip download --only-binary=:all: --no-deps
+          --platform manylinux2014_aarch64 --platform manylinux_2_27_aarch64
+          --platform manylinux_2_28_aarch64 --platform manylinux_2_34_aarch64
+          --python-version 311 --implementation cp --abi cp311
+          --dest "${{ runner.temp }}/eve-arm64-wheels" -r requirements/voice-edge.lock
   linux-voice-install:
     runs-on: ubuntu-latest
     steps:
