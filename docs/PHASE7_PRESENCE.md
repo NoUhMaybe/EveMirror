@@ -124,6 +124,9 @@ Sensor/policy workers remain local when backend, network, LLM, Home Assistant or
 Chromium is unavailable. Wake processing keeps running while the backlight is off.
 This feature uploads no continuous audio, changes no cloud selection and does not
 alter half-duplex echo suppression, mute or hardware receipts.
+Connection loss still cancels ordinary network voice turns. A failed reconnect
+without an established socket does not repeat that cleanup or cancel a new local
+wake chime; this ordering is covered by a deterministic event-controlled test.
 
 ## Configuration and browser boundary
 

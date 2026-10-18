@@ -43,6 +43,7 @@ async def verify_transport(origin, context, token):
 def acceptance(image):
     identity = "eve-acceptance-" + uuid4().hex[:12]
     backend, proxy = identity + "-backend", identity + "-proxy"
+    ingress = identity + "-ingress"
     state, certificates = identity + "-state", identity + "-certs"
     report = []
     operator, edge = secrets.token_urlsafe(40), secrets.token_urlsafe(40)
@@ -81,6 +82,8 @@ def acceptance(image):
         )
         try:
             docker("network", "create", "--internal", identity)
+            # Only the TLS proxy joins this host-facing bridge; the backend stays internal.
+            docker("network", "create", ingress)
             subnet = docker(
                 "network", "inspect", "-f", "{{(index .IPAM.Config 0).Subnet}}", identity
             )
@@ -114,7 +117,7 @@ def acceptance(image):
                 "--name",
                 proxy,
                 "--network",
-                identity,
+                ingress,
                 "-p",
                 "127.0.0.1:18443:18443",
                 "--mount",
@@ -123,6 +126,7 @@ def acceptance(image):
                 f"type=volume,source={certificates},target=/data",
                 "caddy:2",
             )
+            docker("network", "connect", identity, proxy)
             deadline = time.monotonic() + 45
             cert = root / "root.crt"
             while time.monotonic() < deadline:
@@ -147,7 +151,7 @@ def acceptance(image):
                         if response.status_code == 200:
                             break
                     except httpx.TransportError as exc:
-                        last_status = type(exc).__name__
+                        last_status = type(exc).__name__ + ": " + str(exc)
                     time.sleep(0.25)
                 else:
                     raise RuntimeError("Container readiness deadline exceeded: " + last_status)
@@ -240,6 +244,7 @@ def acceptance(image):
             for name in [proxy, backend]:
                 docker("rm", "-f", name, check=False)
             docker("network", "rm", identity, check=False)
+            docker("network", "rm", ingress, check=False)
             for name in [state, certificates]:
                 docker("volume", "rm", name, check=False)
 

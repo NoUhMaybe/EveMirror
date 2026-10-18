@@ -56,7 +56,7 @@ presence/settings scenarios. No prior test was suppressed or weakened.
 
 | Local check | Actual result |
 | --- | --- |
-| Complete Python suite, Windows 3.11.9 and 3.12.10 | **358 passed each**, including all 316 baseline cases and 42 new cases; existing upstream warning on 3.11 |
+| Complete Python suite, Windows 3.11.9 and 3.12.10 | **359 passed each**, including all 316 baseline cases and 43 new cases; existing upstream warning on 3.11 |
 | Frontend tests / Chromium | **27 passed / 12 passed**, retaining all 26 / 9 baseline cases |
 | Ruff lint/format, frontend format/typecheck/build, pip check and npm audit | Passed; 124 Python files; zero npm audit vulnerabilities |
 | Four protocol/application schemas and browser TS/validator drift | Passed |
@@ -74,6 +74,15 @@ No physical sensor protocol is claimed. Firmware and legacy rollback remain inta
 No physical/deployed endpoint, service, boot/display setting, wiring or production
 database was modified. Actual model quality, Pi resource/FPS/thermal measurements,
 sensor accuracy, HDMI/ENA/DAC behavior and the eight-hour soak remain unverified.
+
+Linux CI exposed a real pre-existing offline ordering defect: each failed reconnect
+called voice disconnect cleanup, even without an established socket. A local wake
+chime could therefore be canceled by an unrelated retry. An event-controlled test
+holds the chime while a failed connection completes, reproducing IDLE before the
+fix. Cleanup now occurs only when an established socket is lost; repeated failed
+attempts preserve local capture. Actual disconnect still cancels ordinary turns
+and preserves alarms. Focused cancellation/presence/recovery tests passed on both
+local Python versions before full 359-test validation.
 
 ## Phase 6 cancellation ordering repair
 

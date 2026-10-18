@@ -67,7 +67,9 @@ with a writable SQLite volume and read-only fixture model mount; verifies migrat
 health/static assets, CSP, real TLS validation through Caddy's private test CA,
 authenticated edge WebSockets, pairing, Secure/HttpOnly/SameSite cookies, CSRF,
 SQLite online backup/restore integrity, graceful shutdown and persisted sessions
-after restart. The bare backend has no published port. Test proxy trust uses the
+after restart. The bare backend has no published port on its internal network.
+Only the TLS proxy joins a separate bridge with loopback-only host ingress.
+Test proxy trust uses the
 actual isolated network's inspected subnet, not a production wildcard. Test
 credentials exist only in a private temporary env file and logs are checked for
 them. The script removes only resources created by that invocation. This validates
